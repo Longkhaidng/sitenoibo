@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cổng Thông Tin Nội Bộ - Nhà Máy Sản Xuất</title>
+  <meta name="description" content="Hệ thống cổng truy cập ứng dụng và thông tin nội bộ tập trung cho cán bộ nhân viên nhà máy">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- =========================================================================
+       1. MÀN HÌNH ĐĂNG NHẬP (LOGIN SCREEN)
+       ========================================================================= -->
+  <div id="loginScreen" class="login-wrapper">
+    <div class="login-card">
+      <div class="login-header">
+        <img src="assets/logo.svg" alt="Company Logo" class="login-logo" onerror="this.src=''; this.alt='🏭 TIÊN PHONG PORTAL';">
+        <h1 class="login-title" id="loginPortalTitle">CỔNG THÔNG TIN NỘI BỘ</h1>
+        <p class="login-subtitle" id="loginCompanyName">Hệ thống quản lý ứng dụng tập trung</p>
+      </div>
+
+      <!-- Alert lỗi đăng nhập -->
+      <div id="loginErrorBox" class="login-error-box">
+        <span>⚠️</span>
+        <span id="loginErrorMessage">Mã nhân viên hoặc mật khẩu không đúng</span>
+      </div>
+
+      <!-- Form đăng nhập -->
+      <form id="loginForm" class="login-form" autocomplete="on">
+        <div class="form-group">
+          <label class="form-label" for="inputMaNV">Mã nhân viên</label>
+          <div class="input-icon-wrapper">
+            <span class="input-icon">👤</span>
+            <input type="text" id="inputMaNV" class="form-control" placeholder="Ví dụ: NV001" required autofocus autocomplete="username">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="inputPassword">Mật khẩu</label>
+          <div class="input-icon-wrapper">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="inputPassword" class="form-control" placeholder="Nhập mật khẩu" required autocomplete="current-password">
+          </div>
+        </div>
+
+        <div class="form-row-remember">
+          <label class="checkbox-label">
+            <input type="checkbox" id="checkRememberMe">
+            <span>Ghi nhớ đăng nhập</span>
+          </label>
+          <span style="color: var(--neutral-400); font-size: 0.8rem;">Quên MK: Báo IT</span>
+        </div>
+
+        <button type="submit" id="btnLogin" class="btn-primary">
+          <span id="btnLoginText">ĐĂNG NHẬP</span>
+          <span id="btnLoginSpinner" class="spinner" style="display: none;"></span>
+        </button>
+      </form>
+
+      <!-- Gợi ý tài khoản mẫu để test -->
+      <div class="login-demo-credentials">
+        <strong>Tài khoản mẫu ban đầu:</strong><br>
+        • Admin: <code>NV001</code> / Mật khẩu: <code>admin123</code> (Toàn quyền)<br>
+        • Nhân viên: <code>NV002</code> / Mật khẩu: <code>user123</code> (HCNS)<br>
+        • Nhân viên: <code>NV003</code> / Mật khẩu: <code>user123</code> (PCCC)
+      </div>
+
+      <div class="login-footer-info">
+        &copy; <span id="currentYear">2026</span> - Cổng Thông Tin Nội Bộ Nhà Máy.<br>Bảo mật &amp; Phân quyền bởi Google Cloud.
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       2. KHUNG ỨNG DỤNG SAU KHI ĐĂNG NHẬP (APP SHELL)
+       ========================================================================= -->
+  <div id="appScreen" class="app-container" style="display: none;">
+
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+    <!-- SIDEBAR BÊN TRÁI -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-wrapper">
+          <div class="brand-icon">🏭</div>
+          <div class="brand-text">
+            <h2 id="sidebarTitle">PORTAL NỘI BỘ</h2>
+            <p>Hệ thống sản xuất</p>
+          </div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">Chức năng chính</div>
+        <div class="nav-item active" data-view="dashboard">
+          <span class="nav-icon">🏠</span>
+          <span>Trang chủ</span>
+        </div>
+        <div class="nav-item" data-view="notifications">
+          <span class="nav-icon">📢</span>
+          <span>Thông báo</span>
+          <span id="sidebarNotifBadge" class="nav-badge" style="display: none;">0</span>
+        </div>
+        <div class="nav-item" data-view="profile">
+          <span class="nav-icon">👤</span>
+          <span>Hồ sơ cá nhân</span>
+        </div>
+
+        <!-- PHẦN DÀNH CHO ADMIN -->
+        <div id="adminNavSection" class="admin-nav-section" style="display: none;">
+          <div class="nav-section-title">Hệ thống</div>
+          <div class="nav-item" data-view="admin">
+            <span class="nav-icon">⚙️</span>
+            <span>Quản trị hệ thống</span>
+          </div>
+        </div>
+      </nav>
+
+      <!-- User mini profile in sidebar bottom -->
+      <div class="sidebar-footer">
+        <div class="user-mini-avatar" id="sidebarAvatar">A</div>
+        <div class="user-mini-info">
+          <div class="user-mini-name" id="sidebarUserName">Nguyễn Văn A</div>
+          <div class="user-mini-role">
+            <span id="sidebarUserRoleBadge">Admin</span> • <span id="sidebarUserDept">IT</span>
+          </div>
+        </div>
+        <button id="btnSidebarLogout" class="btn-sidebar-logout" title="Đăng xuất">
+          🚪
+        </button>
+      </div>
+    </aside>
+
+    <!-- KHU VỰC NỘI DUNG CHÍNH (MAIN LAYOUT) -->
+    <div class="main-layout">
+      <!-- HEADER PHÍA TRÊN -->
+      <header class="top-header">
+        <div class="header-left">
+          <button id="btnMobileToggle" class="mobile-menu-btn" title="Menu">☰</button>
+          <div class="header-portal-info">
+            <span class="header-company-name" id="headerCompanyName">CÔNG TY SẢN XUẤT</span>
+            <span class="header-page-title" id="headerPageTitle">Trang chủ ứng dụng</span>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <button class="header-btn" id="btnHeaderNotif" title="Xem thông báo">
+            <span>📢</span>
+            <span style="font-size: 0.8rem;">Thông báo</span>
+          </button>
+          
+          <button class="header-btn" id="btnHeaderProfile" title="Xem hồ sơ">
+            <span class="user-badge-role" id="headerRoleBadge">Admin</span>
+            <span id="headerGreetingName" style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Xin chào</span>
+          </button>
+
+          <button class="header-btn" id="btnHeaderLogout" title="Đăng xuất" style="color: var(--danger-600);">
+            <span>🚪</span>
+            <span>Đăng xuất</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- VÙNG NỘI DUNG THAY ĐỔI (CONTENT BODY) -->
+      <main class="content-body">
+
+        <!-- ===================================================================
+             VIEW 1: TRANG CHỦ & DANH SÁCH ỨNG DỤNG
+             =================================================================== -->
+        <section id="viewDashboard" class="view-section active">
+          <!-- Hero Banner -->
+          <div class="welcome-hero">
+            <div class="welcome-text">
+              <h2 id="heroGreeting">Xin chào cán bộ công nhân viên! 👋</h2>
+              <p>Chào mừng bạn đến với Cổng ứng dụng nội bộ nhà máy. Hãy chọn ứng dụng bên dưới để bắt đầu công việc.</p>
+            </div>
+            <div class="welcome-quick-action" id="heroAdminAction" style="display: none;">
+              <button class="btn-secondary-white" onclick="App.openAddAppModal()">
+                <span>➕</span> Thêm ứng dụng mới
+              </button>
+            </div>
+          </div>
+
+          <!-- Thông báo mới nhất ticker -->
+          <div id="latestNoticeBanner" class="notice-ticker-bar" style="display: none;">
+            <strong>📢 THÔNG BÁO MỚI:</strong>
+            <span id="latestNoticeText" class="notice-ticker-content">Chưa có thông báo mới.</span>
+            <a href="javascript:void(0)" onclick="App.switchView('notifications')" style="margin-left: auto; font-weight: 700;">Xem tất cả</a>
+          </div>
+
+          <!-- THANH TÌM KIẾM & BỘ LỌC DANH MỤC -->
+          <div class="search-filter-toolbar">
+            <div class="toolbar-search-row">
+              <div class="search-input-box">
+                <span class="search-icon-left">🔍</span>
+                <input type="text" id="appSearchInput" placeholder="Tìm kiếm ứng dụng theo tên, mô tả, danh mục (VD: PCCC, kho, chấm công...)...">
+                <button id="btnClearSearch" class="btn-clear-search">✕</button>
+              </div>
+            </div>
+
+            <!-- Dải chips danh mục -->
+            <div class="filter-categories-row" id="categoryChipsContainer">
+              <button class="category-chip active" data-category="ALL">
+                <span>⚡ Tất cả</span>
+                <span class="chip-count" id="chipCountAll">0</span>
+              </button>
+              <!-- Các danh mục khác sẽ được nạp động từ Google Sheets -->
+            </div>
+          </div>
+
+          <!-- TIÊU ĐỀ KHU VỰC ỨNG DỤNG -->
+          <div class="section-header-row">
+            <h3 class="section-title">
+              <span>📂</span> Danh sách ứng dụng được phân quyền
+            </h3>
+            <span id="appCountDisplay" style="font-size: 0.85rem; color: var(--neutral-500); font-weight: 600;">
+              Hiển thị: 0 ứng dụng
+            </span>
+          </div>
+
+          <!-- GRID CHỨA CÁC THẺ ỨNG DỤNG (APP CARDS) -->
+          <div id="appsGrid" class="app-grid">
+            <!-- Nạp động qua JavaScript -->
+          </div>
+
+          <!-- TRẠNG THÁI ĐANG TẢI (LOADING) -->
+          <div id="appsLoading" class="loading-container" style="display: none;">
+            <div class="spinner spinner-dark" style="width: 36px; height: 36px; border-width: 3px;"></div>
+            <span>Đang đồng bộ danh mục ứng dụng từ máy chủ...</span>
+          </div>
+
+          <!-- TRẠNG THÁI KHÔNG TÌM THẤY DỮ LIỆU (EMPTY STATE) -->
+          <div id="appsEmptyState" class="empty-state" style="display: none;">
+            <div class="empty-state-icon">🔍</div>
+            <h4 class="empty-state-title">Không tìm thấy ứng dụng phù hợp</h4>
+            <p class="empty-state-desc">Không có ứng dụng nào khớp với từ khóa tìm kiếm hoặc bạn chưa được phân quyền truy cập ứng dụng thuộc nhóm này.</p>
+            <button class="btn-secondary" onclick="App.resetSearchAndFilters()">Xóa bộ lọc tìm kiếm</button>
+          </div>
+
+          <!-- TRẠNG THÁI LỖI KẾT NỐI (ERROR STATE) -->
+          <div id="appsErrorState" class="empty-state" style="display: none; border-color: #fecaca; background-color: var(--danger-50);">
+            <div class="empty-state-icon">⚠️</div>
+            <h4 class="empty-state-title" style="color: var(--danger-600);">Không thể kết nối máy chủ</h4>
+            <p class="empty-state-desc" id="appsErrorMessage">Hệ thống không thể tải dữ liệu từ Google Apps Script. Vui lòng kiểm tra lại kết nối mạng hoặc liên hệ IT.</p>
+            <button class="btn-primary" style="width: auto; margin: 0 auto;" onclick="App.loadDashboardData()">Thử lại</button>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             VIEW 2: THÔNG BÁO NỘI BỘ (ANNOUNCEMENTS)
+             =================================================================== -->
+        <section id="viewNotifications" class="view-section">
+          <div class="section-header-row">
+            <h3 class="section-title"><span>📢</span> Bảng tin thông báo nhà máy</h3>
+            <button id="btnAdminAddNotif" class="btn-primary" style="width: auto; display: none;" onclick="App.openAddNotifModal()">
+              ➕ Đăng thông báo mới
+            </button>
+          </div>
+
+          <div id="notificationsContainer" class="notifications-list">
+            <!-- Nạp động qua JS -->
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             VIEW 3: HỒ SƠ CÁ NHÂN (USER PROFILE)
+             =================================================================== -->
+        <section id="viewProfile" class="view-section">
+          <div class="profile-grid">
+            <!-- Card Thông tin cá nhân -->
+            <div class="profile-card">
+              <h3 class="profile-card-title">
+                <span>👤</span> Thông tin nhân viên
+              </h3>
+              <div class="profile-info-list">
+                <div class="profile-info-row">
+                  <span class="profile-info-label">Mã nhân viên:</span>
+                  <span class="profile-info-value" id="profMaNV">-</span>
+                </div>
+                <div class="profile-info-row">
+                  <span class="profile-info-label">Họ và tên:</span>
+                  <span class="profile-info-value" id="profHoTen">-</span>
+                </div>
+                <div class="profile-info-row">
+                  <span class="profile-info-label">Phòng ban:</span>
+                  <span class="profile-info-value" id="profPhongBan">-</span>
+                </div>
+                <div class="profile-info-row">
+                  <span class="profile-info-label">Chức vụ:</span>
+                  <span class="profile-info-value" id="profChucVu">-</span>
+                </div>
+                <div class="profile-info-row">
+                  <span class="profile-info-label">Vai trò hệ thống:</span>
+                  <span class="profile-info-value" id="profRole">-</span>
+                </div>
+                <div class="profile-info-row">
+                  <span class="profile-info-label">Trạng thái:</span>
+                  <span class="profile-info-value" id="profTrangThai">-</span>
+                </div>
+                <div class="profile-info-row">
+                  <span class="profile-info-label">Lần đăng nhập cuối:</span>
+                  <span class="profile-info-value" id="profLanDangNhap">-</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card Đổi mật khẩu -->
+            <div class="profile-card">
+              <h3 class="profile-card-title">
+                <span>🔒</span> Thay đổi mật khẩu
+              </h3>
+              <form id="formChangePassword">
+                <div class="form-group" style="margin-bottom: 14px;">
+                  <label class="form-label" for="currPass">Mật khẩu hiện tại</label>
+                  <input type="password" id="currPass" class="form-control no-icon" required autocomplete="current-password">
+                </div>
+                <div class="form-group" style="margin-bottom: 14px;">
+                  <label class="form-label" for="newPass">Mật khẩu mới</label>
+                  <input type="password" id="newPass" class="form-control no-icon" required minlength="6" autocomplete="new-password">
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                  <label class="form-label" for="confirmPass">Xác nhận mật khẩu mới</label>
+                  <input type="password" id="confirmPass" class="form-control no-icon" required minlength="6" autocomplete="new-password">
+                </div>
+                <button type="submit" id="btnSubmitChangePass" class="btn-primary">
+                  <span>Cập nhật mật khẩu</span>
+                </button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             VIEW 4: QUẢN TRỊ ADMIN (ADMIN CENTER)
+             =================================================================== -->
+        <section id="viewAdmin" class="view-section">
+          <!-- KPI STATS CARDS -->
+          <div class="admin-stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon blue">👥</div>
+              <div class="stat-info">
+                <div class="stat-value" id="statUsers">0</div>
+                <div class="stat-label">Tổng nhân viên</div>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon green">📱</div>
+              <div class="stat-info">
+                <div class="stat-value" id="statApps">0</div>
+                <div class="stat-label">Tổng ứng dụng</div>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon amber">⚡</div>
+              <div class="stat-info">
+                <div class="stat-value" id="statActiveApps">0</div>
+                <div class="stat-label">Ứng dụng hoạt động</div>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon purple">📑</div>
+              <div class="stat-info">
+                <div class="stat-value" id="statCategories">0</div>
+                <div class="stat-label">Danh mục</div>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon slate">📈</div>
+              <div class="stat-info">
+                <div class="stat-value" id="statLogins">0</div>
+                <div class="stat-label">Lượt đăng nhập</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ADMIN SUB-TABS -->
+          <div class="admin-nav-tabs">
+            <button class="admin-tab-btn active" data-admin-tab="adminApps">
+              <span>📱 Quản lý ứng dụng</span>
+            </button>
+            <button class="admin-tab-btn" data-admin-tab="adminCategories">
+              <span>📑 Quản lý danh mục</span>
+            </button>
+            <button class="admin-tab-btn" data-admin-tab="adminUsers">
+              <span>👥 Quản lý nhân viên</span>
+            </button>
+            <button class="admin-tab-btn" data-admin-tab="adminLogs">
+              <span>📜 Nhật ký hệ thống</span>
+            </button>
+          </div>
+
+          <!-- TAB 1: QUẢN LÝ ỨNG DỤNG -->
+          <div id="adminApps" class="admin-tab-content active">
+            <div class="admin-panel-card">
+              <div class="panel-toolbar">
+                <h4 style="font-size: 1.05rem; font-weight: 700;">Danh sách ứng dụng hệ thống</h4>
+                <div style="display: flex; gap: 10px;">
+                  <button class="btn-primary" style="width: auto;" onclick="App.openAddAppModal()">
+                    ➕ Thêm ứng dụng
+                  </button>
+                  <button class="btn-secondary" onclick="App.loadAdminApps()">🔄 Nạp lại</button>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 50px;">Icon</th>
+                      <th>Tên ứng dụng</th>
+                      <th>Danh mục</th>
+                      <th>URL liên kết</th>
+                      <th>Quyền truy cập</th>
+                      <th>Thứ tự</th>
+                      <th>Trạng thái</th>
+                      <th style="text-align: right;">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tableAppsBody">
+                    <tr><td colspan="8" style="text-align: center; padding: 24px;">Đang tải danh sách ứng dụng...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: QUẢN LÝ DANH MỤC -->
+          <div id="adminCategories" class="admin-tab-content">
+            <div class="admin-panel-card">
+              <div class="panel-toolbar">
+                <h4 style="font-size: 1.05rem; font-weight: 700;">Danh sách phân loại ứng dụng</h4>
+                <div style="display: flex; gap: 10px;">
+                  <button class="btn-primary" style="width: auto;" onclick="App.openAddCategoryModal()">
+                    ➕ Thêm danh mục
+                  </button>
+                  <button class="btn-secondary" onclick="App.loadAdminCategories()">🔄 Nạp lại</button>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 50px;">Icon</th>
+                      <th>Tên danh mục</th>
+                      <th>Mô tả</th>
+                      <th>Thứ tự</th>
+                      <th>Trạng thái</th>
+                      <th style="text-align: right;">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tableCategoriesBody">
+                    <tr><td colspan="6" style="text-align: center; padding: 24px;">Đang tải danh mục...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: QUẢN LÝ NHÂN VIÊN -->
+          <div id="adminUsers" class="admin-tab-content">
+            <div class="admin-panel-card">
+              <div class="panel-toolbar">
+                <h4 style="font-size: 1.05rem; font-weight: 700;">Danh sách tài khoản nhân viên</h4>
+                <div style="display: flex; gap: 10px;">
+                  <button class="btn-primary" style="width: auto;" onclick="App.openAddUserModal()">
+                    ➕ Thêm nhân viên
+                  </button>
+                  <button class="btn-secondary" onclick="App.loadAdminUsers()">🔄 Nạp lại</button>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Mã NV</th>
+                      <th>Họ và tên</th>
+                      <th>Phòng ban</th>
+                      <th>Chức vụ</th>
+                      <th>Vai trò (Role)</th>
+                      <th>Trạng thái</th>
+                      <th>Đăng nhập cuối</th>
+                      <th style="text-align: right;">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tableUsersBody">
+                    <tr><td colspan="8" style="text-align: center; padding: 24px;">Đang tải danh sách nhân viên...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 4: NHẬT KÝ HỆ THỐNG (LOGS) -->
+          <div id="adminLogs" class="admin-tab-content">
+            <div class="admin-panel-card">
+              <div class="panel-toolbar">
+                <h4 style="font-size: 1.05rem; font-weight: 700;">Nhật ký thao tác hệ thống (Audit Logs)</h4>
+                <button class="btn-secondary" onclick="App.loadAdminLogs()">🔄 Nạp lại log</button>
+              </div>
+
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Thời gian</th>
+                      <th>Mã NV</th>
+                      <th>Họ tên</th>
+                      <th>Hành động</th>
+                      <th>Đối tượng</th>
+                      <th>Chi tiết / Kết quả</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tableLogsBody">
+                    <tr><td colspan="6" style="text-align: center; padding: 24px;">Đang tải nhật ký...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       3. CÁC MODAL DIALOGS (POPUP FORM)
+       ========================================================================= -->
+
+  <!-- MODAL: THÊM / SỬA ỨNG DỤNG -->
+  <div id="modalApp" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modalAppTitle" class="modal-title">Thêm ứng dụng mới</h3>
+        <button class="btn-modal-close" onclick="App.closeModal('modalApp')">&times;</button>
+      </div>
+      <form id="formAppModal">
+        <input type="hidden" id="appFormId">
+        <div class="modal-body">
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" for="appFormTen">Tên ứng dụng *</label>
+            <input type="text" id="appFormTen" class="form-control no-icon" placeholder="VD: Quản lý PCCC" required>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" for="appFormMoTa">Mô tả ngắn</label>
+            <textarea id="appFormMoTa" class="form-control no-icon" rows="2" placeholder="VD: Kiểm tra thiết bị PCCC định kỳ trong nhà máy"></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+            <div class="form-group">
+              <label class="form-label" for="appFormDanhMuc">Danh mục *</label>
+              <select id="appFormDanhMuc" class="form-control no-icon" required>
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="appFormIcon">Icon (Emoji hoặc ký hiệu)</label>
+              <input type="text" id="appFormIcon" class="form-control no-icon" placeholder="VD: 🔥, 💻, 📦, 🛡️, 📋" value="📱">
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" for="appFormUrl">URL liên kết ứng dụng *</label>
+            <input type="url" id="appFormUrl" class="form-control no-icon" placeholder="https://..." required>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label" for="appFormThuTu">Thứ tự</label>
+              <input type="number" id="appFormThuTu" class="form-control no-icon" value="1" min="1">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="appFormTrangThai">Trạng thái</label>
+              <select id="appFormTrangThai" class="form-control no-icon">
+                <option value="Active">Active (Hoạt động)</option>
+                <option value="Inactive">Inactive (Tạm ẩn)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="appFormQuyen">Quyền truy cập</label>
+              <select id="appFormQuyen" class="form-control no-icon">
+                <option value="All">Tất cả nhân viên (All)</option>
+                <option value="IT">Chỉ IT</option>
+                <option value="PCCC">Chỉ PCCC</option>
+                <option value="EHS">Chỉ EHS</option>
+                <option value="HCNS">Chỉ HCNS</option>
+                <option value="Sản xuất">Chỉ Sản xuất</option>
+                <option value="Kho">Chỉ Kho</option>
+                <option value="Manager">Quản lý (Manager trở lên)</option>
+                <option value="Admin">Chỉ Quản trị (Admin)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="App.closeModal('modalApp')">Hủy bỏ</button>
+          <button type="submit" id="btnSaveApp" class="btn-primary" style="width: auto;">
+            <span>LƯU ỨNG DỤNG</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: THÊM / SỬA DANH MỤC -->
+  <div id="modalCategory" class="modal-overlay">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-header">
+        <h3 id="modalCategoryTitle" class="modal-title">Thêm danh mục</h3>
+        <button class="btn-modal-close" onclick="App.closeModal('modalCategory')">&times;</button>
+      </div>
+      <form id="formCategoryModal">
+        <input type="hidden" id="catFormId">
+        <div class="modal-body">
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" for="catFormTen">Tên danh mục *</label>
+            <input type="text" id="catFormTen" class="form-control no-icon" placeholder="VD: Kho bãi, Bảo trì..." required>
+          </div>
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" for="catFormMoTa">Mô tả</label>
+            <input type="text" id="catFormMoTa" class="form-control no-icon" placeholder="Mô tả danh mục">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+            <div class="form-group">
+              <label class="form-label" for="catFormIcon">Icon Emoji</label>
+              <input type="text" id="catFormIcon" class="form-control no-icon" value="📂" placeholder="VD: 📦, 🔧">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="catFormThuTu">Thứ tự</label>
+              <input type="number" id="catFormThuTu" class="form-control no-icon" value="1" min="1">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="catFormTrangThai">Trạng thái</label>
+            <select id="catFormTrangThai" class="form-control no-icon">
+              <option value="Active">Active (Hoạt động)</option>
+              <option value="Inactive">Inactive (Khóa)</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="App.closeModal('modalCategory')">Hủy</button>
+          <button type="submit" class="btn-primary" style="width: auto;">Lưu danh mục</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: THÊM / SỬA NHÂN VIÊN -->
+  <div id="modalUser" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modalUserTitle" class="modal-title">Thêm nhân viên</h3>
+        <button class="btn-modal-close" onclick="App.closeModal('modalUser')">&times;</button>
+      </div>
+      <form id="formUserModal">
+        <input type="hidden" id="userFormId">
+        <div class="modal-body">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+            <div class="form-group">
+              <label class="form-label" for="userFormMaNV">Mã nhân viên *</label>
+              <input type="text" id="userFormMaNV" class="form-control no-icon" placeholder="VD: NV010" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="userFormHoTen">Họ và tên *</label>
+              <input type="text" id="userFormHoTen" class="form-control no-icon" placeholder="VD: Trần Văn B" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+            <div class="form-group">
+              <label class="form-label" for="userFormPhongBan">Phòng ban *</label>
+              <select id="userFormPhongBan" class="form-control no-icon" required>
+                <option value="IT">IT</option>
+                <option value="HCNS">HCNS</option>
+                <option value="PCCC">PCCC</option>
+                <option value="EHS">EHS</option>
+                <option value="Sản xuất">Sản xuất</option>
+                <option value="Kho">Kho</option>
+                <option value="Bảo trì">Bảo trì</option>
+                <option value="QA/QC">QA/QC</option>
+                <option value="An ninh">An ninh</option>
+                <option value="Tài chính">Tài chính</option>
+                <option value="Ban Giám Đốc">Ban Giám Đốc</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="userFormChucVu">Chức vụ</label>
+              <input type="text" id="userFormChucVu" class="form-control no-icon" placeholder="VD: Trưởng ca, Nhân viên">
+            </div>
+          </div>
+
+          <div id="userFormPassGroup" class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" for="userFormPass">Mật khẩu khởi tạo</label>
+            <input type="text" id="userFormPass" class="form-control no-icon" placeholder="Mặc định: 123456" value="123456">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div class="form-group">
+              <label class="form-label" for="userFormRole">Vai trò (Role) *</label>
+              <select id="userFormRole" class="form-control no-icon" required>
+                <option value="User">User (Nhân viên)</option>
+                <option value="Manager">Manager (Quản lý)</option>
+                <option value="Admin">Admin (Quản trị viên)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="userFormTrangThai">Trạng thái</label>
+              <select id="userFormTrangThai" class="form-control no-icon">
+                <option value="Active">Active (Hoạt động)</option>
+                <option value="Inactive">Inactive (Khóa)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="App.closeModal('modalUser')">Hủy</button>
+          <button type="submit" class="btn-primary" style="width: auto;">Lưu tài khoản</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ĐĂNG THÔNG BÁO -->
+  <div id="modalNotif" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Đăng thông báo nội bộ</h3>
+        <button class="btn-modal-close" onclick="App.closeModal('modalNotif')">&times;</button>
+      </div>
+      <form id="formNotifModal">
+        <div class="modal-body">
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" for="notifFormTieuDe">Tiêu đề thông báo *</label>
+            <input type="text" id="notifFormTieuDe" class="form-control no-icon" placeholder="VD: Lịch kiểm tra an toàn PCCC quý 3" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" for="notifFormNoiDung">Nội dung chi tiết *</label>
+            <textarea id="notifFormNoiDung" class="form-control no-icon" rows="4" placeholder="Nội dung thông báo..." required></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="notifFormDoiTuong">Đối tượng xem</label>
+            <select id="notifFormDoiTuong" class="form-control no-icon">
+              <option value="All">Tất cả nhân viên</option>
+              <option value="IT">Phòng IT</option>
+              <option value="Sản xuất">Bộ phận Sản xuất</option>
+              <option value="Kho">Bộ phận Kho</option>
+              <option value="Manager">Cấp Quản lý trở lên</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="App.closeModal('modalNotif')">Hủy</button>
+          <button type="submit" class="btn-primary" style="width: auto;">Đăng thông báo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: XÁC NHẬN (CONFIRMATION DIALOG) -->
+  <div id="modalConfirm" class="modal-overlay">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-header">
+        <h3 id="modalConfirmTitle" class="modal-title">Xác nhận</h3>
+        <button class="btn-modal-close" onclick="App.closeModal('modalConfirm')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="modalConfirmMessage" style="font-size: 0.95rem; color: var(--neutral-700);">Bạn có chắc muốn thực hiện thao tác này?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="App.closeModal('modalConfirm')">Hủy bỏ</button>
+        <button type="button" id="btnConfirmAction" class="btn-danger">Đồng ý</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTAINER CHỨA TOAST NOTIFICATIONS -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- NẠP CẤU HÌNH & CODE JAVASCRIPT CHÍNH -->
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
