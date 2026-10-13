@@ -5,7 +5,7 @@
 
 const CONFIG = {
   // URL Web App sau khi Deploy Google Apps Script
-  API_URL: "https://script.google.com/macros/s/AKfycbz7j5qt1eYLQT0CvrcR6keTYYzQnwtRVqqkYyEnSCw5einar2ZOhgajLKw4X-2tzSa9iQ/exec",
+  API_URL: "https://script.google.com/macros/s/AKfycbwOqWP9ymPtia04WjooRWtZvfD_8BRgV_CwbeCLMYOWxoPlI01DYGPVSifi8wRRupEYmQ/exec",
 
   // Tên công ty / nhà máy hiển thị trên hệ thống
   COMPANY_NAME: "LONG KHAI CORPORATION",
