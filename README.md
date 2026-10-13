@@ -52,13 +52,15 @@ Hệ thống cổng truy cập tập trung dành cho nhà máy sản xuất, cho
 company-internal-web/
 │
 ├── index.html        # Giao diện chính (Đăng nhập, Dashboard, Quản trị Admin, Hồ sơ)
-├── style.css         # Thiết kế Responsive, Theme công nghiệp chuyên nghiệp
-├── app.js            # JavaScript điều khiển logic, gọi API GAS, phân quyền
-├── config.js         # Tệp cấu hình chứa URL Google Apps Script Web App
-├── Code.gs           # Mã nguồn Backend chạy trên Google Apps Script
+├── style.css         # Thiết kế Responsive, Theme công nghiệp Long Khai Corporation
+├── app.js            # JavaScript điều khiển logic, Cache SWR siêu tốc, tự động gắn SSO Token
+├── sso-client.js     # Bộ SDK nhúng cho các Ứng dụng con tự động nhận diện đăng nhập (SSO)
+├── config.js         # Tệp cấu hình chứa URL Web App & Thông tin Long Khai
+├── Code.gs           # Mã nguồn Backend Google Apps Script (Tối ưu CacheService 10x & Verify SSO)
 ├── README.md         # Tài liệu hướng dẫn triển khai chi tiết từng bước
 └── assets/
-    └── logo.svg      # Logo nhận diện thương hiệu công ty / nhà máy
+    ├── logo.png      # Logo chính thức Long Khai Corporation
+    └── logo.svg      # Logo vector dự phòng
 ```
 
 ---
@@ -200,7 +202,45 @@ Hệ thống đã viết sẵn hàm tự động tạo toàn bộ các Sheet, ti
 
 ---
 
-## 🛠️ 6. KHẮC PHỤC SỰ CỐ THƯỜNG GẶP (TROUBLESHOOTING)
+## 🔐 6. TÍCH HỢP ĐĂNG NHẬP MỘT LẦN (SSO TOKEN) CHO ỨNG DỤNG CON
+
+Khi nhân viên bấm **`[ MỞ ỨNG DỤNG ]`** trên Dashboard, hệ thống sẽ tự động gắn mã xác thực chữ ký số vào URL của ứng dụng con:
+`https://ung-dung-con.com/?sso_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`
+
+### Cách 1: Nhúng nhanh `sso-client.js` vào Ứng dụng con (HTML / JS)
+Chỉ cần nhúng file `sso-client.js` vào ứng dụng con, hệ thống sẽ tự động giải mã thông tin nhân viên, xóa `sso_token` khỏi thanh địa chỉ để bảo mật và xác thực chữ ký với máy chủ Portal:
+
+```html
+<script src="https://<ten-tai-khoan>.github.io/<ten-repo>/sso-client.js"></script>
+<script>
+  LongKhaiSSO.init({
+    verifyOnServer: true,
+    onAuthenticated: function(user) {
+      console.log("Xin chào:", user.hoTen, "| Mã NV:", user.maNhanVien, "| Phòng:", user.phongBan);
+    }
+  });
+</script>
+```
+
+### Cách 2: Gọi API `verify_sso_token` từ Ứng dụng con bất kỳ
+Ứng dụng con có thể gửi `POST` hoặc `GET` tới URL Web App của Cổng thông tin với `action: "verify_sso_token"` và `sso_token`:
+
+```javascript
+const ssoToken = new URLSearchParams(window.location.search).get("sso_token");
+const res = await fetch(PORTAL_API_URL, {
+  method: "POST",
+  headers: { "Content-Type": "text/plain;charset=utf-8" },
+  body: JSON.stringify({ action: "verify_sso_token", data: { sso_token: ssoToken } })
+}).then(r => r.json());
+
+if (res.success) {
+  // res.user = { id, maNhanVien, hoTen, phongBan, chucVu, role, exp }
+}
+```
+
+---
+
+## 🛠️ 7. KHẮC PHỤC SỰ CỐ THƯỜNG GẶP (TROUBLESHOOTING)
 
 ### Lỗi 1: Trình duyệt báo `Không thể kết nối máy chủ Google Apps Script`
 - **Nguyên nhân:** Chưa cấu hình biến `API_URL` trong file `config.js` hoặc cấu hình sai URL.
@@ -216,10 +256,11 @@ Hệ thống đã viết sẵn hàm tự động tạo toàn bộ các Sheet, ti
 
 ---
 
-## 📈 7. KHẢ NĂNG MỞ RỘNG TRONG TƯƠNG LAI
+## 📈 8. KHẢ NĂNG MỞ RỘNG TRONG TƯƠNG LAI
 Hệ thống được thiết kế theo chuẩn Cổng tích hợp (Centralized Portal Gateway). Trong tương lai, nhà máy có thể tích hợp thêm:
 - Hệ thống ERP / SAP / Odoo
 - Hệ thống MES (Manufacturing Execution System)
 - Hệ thống SCADA / IoT giám sát nhiệt độ, áp suất máy nén khí
 - Báo cáo PowerBI / Looker Studio nhúng trực tiếp
 Chỉ cần Admin thêm link và phân quyền trong giao diện, không cần viết lại mã nguồn.
+

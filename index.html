@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cổng Thông Tin Nội Bộ - Nhà Máy Sản Xuất</title>
-  <meta name="description" content="Hệ thống cổng truy cập ứng dụng và thông tin nội bộ tập trung cho cán bộ nhân viên nhà máy">
+  <title>Cổng Thông Tin Nội Bộ - LONG KHAI CORPORATION</title>
+  <meta name="description" content="Hệ thống cổng truy cập ứng dụng và thông tin nội bộ tập trung - Long Khai Corporation">
   
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="alternate icon" type="image/png" href="assets/logo.png">
   
   <!-- CSS Stylesheet -->
   <link rel="stylesheet" href="style.css">
@@ -20,9 +21,9 @@
   <div id="loginScreen" class="login-wrapper">
     <div class="login-card">
       <div class="login-header">
-        <img src="assets/logo.svg" alt="Company Logo" class="login-logo" onerror="this.src=''; this.alt='🏭 TIÊN PHONG PORTAL';">
+        <img src="assets/logo.svg" alt="Long Khai Corporation Logo" class="login-logo" onerror="this.src='assets/logo.png';">
         <h1 class="login-title" id="loginPortalTitle">CỔNG THÔNG TIN NỘI BỘ</h1>
-        <p class="login-subtitle" id="loginCompanyName">Hệ thống quản lý ứng dụng tập trung</p>
+        <p class="login-subtitle" id="loginCompanyName">LONG KHAI CORPORATION</p>
       </div>
 
       <!-- Alert lỗi đăng nhập -->
@@ -66,13 +67,13 @@
       <!-- Gợi ý tài khoản mẫu để test -->
       <div class="login-demo-credentials">
         <strong>Tài khoản mẫu ban đầu:</strong><br>
-        • Admin: <code>NV001</code> / Mật khẩu: <code>admin123</code> (Toàn quyền)<br>
-        • Nhân viên: <code>NV002</code> / Mật khẩu: <code>user123</code> (HCNS)<br>
-        • Nhân viên: <code>NV003</code> / Mật khẩu: <code>user123</code> (PCCC)
+        • Admin / IT: <code>NV001</code> / Mật khẩu: <code>admin123</code> (Toàn quyền & Làm thẻ IT)<br>
+        • Kế toán: <code>NV004</code> / Mật khẩu: <code>user123</code> (Duyệt Xác nhận công)<br>
+        • Nhân viên: <code>NV002</code> / Mật khẩu: <code>user123</code> (HCNS)
       </div>
 
       <div class="login-footer-info">
-        &copy; <span id="currentYear">2026</span> - Cổng Thông Tin Nội Bộ Nhà Máy.<br>Bảo mật &amp; Phân quyền bởi Google Cloud.
+        &copy; <span id="currentYear">2026</span> - Long Khai Corporation.<br>Hệ thống Cổng thông tin nội bộ nhà máy.
       </div>
     </div>
   </div>
@@ -89,10 +90,10 @@
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
         <div class="brand-wrapper">
-          <div class="brand-icon">🏭</div>
+          <img src="assets/logo.svg" alt="Long Khai Logo" class="brand-logo-img" onerror="this.src='assets/logo.png';">
           <div class="brand-text">
-            <h2 id="sidebarTitle">PORTAL NỘI BỘ</h2>
-            <p>Hệ thống sản xuất</p>
+            <h2 id="sidebarTitle">LONG KHAI</h2>
+            <p>PORTAL NỘI BỘ</p>
           </div>
         </div>
       </div>
@@ -102,6 +103,11 @@
         <div class="nav-item active" data-view="dashboard">
           <span class="nav-icon">🏠</span>
           <span>Trang chủ</span>
+        </div>
+        <div class="nav-item" data-view="workConfirm">
+          <span class="nav-icon">🪪</span>
+          <span>Xác nhận công</span>
+          <span id="sidebarWcBadge" class="nav-badge" style="display: none;">0</span>
         </div>
         <div class="nav-item" data-view="notifications">
           <span class="nav-icon">📢</span>
@@ -144,13 +150,19 @@
       <header class="top-header">
         <div class="header-left">
           <button id="btnMobileToggle" class="mobile-menu-btn" title="Menu">☰</button>
+          <img src="assets/logo.svg" alt="Long Khai" class="header-brand-logo" onerror="this.src='assets/logo.png';">
           <div class="header-portal-info">
-            <span class="header-company-name" id="headerCompanyName">CÔNG TY SẢN XUẤT</span>
+            <span class="header-company-name" id="headerCompanyName">LONG KHAI CORPORATION</span>
             <span class="header-page-title" id="headerPageTitle">Trang chủ ứng dụng</span>
           </div>
         </div>
 
         <div class="header-right">
+          <button class="header-btn" id="btnHeaderWorkConfirm" title="Khai báo Giấy xác nhận công (Mất thẻ / Quên thẻ / Thẻ hỏng)" onclick="App.switchView('workConfirm')">
+            <span>🪪</span>
+            <span style="font-size: 0.8rem; font-weight: 700; color: var(--primary-700);">Xác nhận công</span>
+          </button>
+
           <button class="header-btn" id="btnHeaderNotif" title="Xem thông báo">
             <span>📢</span>
             <span style="font-size: 0.8rem;">Thông báo</span>
@@ -179,12 +191,17 @@
           <div class="welcome-hero">
             <div class="welcome-text">
               <h2 id="heroGreeting">Xin chào cán bộ công nhân viên! 👋</h2>
-              <p>Chào mừng bạn đến với Cổng ứng dụng nội bộ nhà máy. Hãy chọn ứng dụng bên dưới để bắt đầu công việc.</p>
+              <p>Chào mừng bạn đến với Cổng ứng dụng nội bộ Long Khai Corporation. Hãy chọn ứng dụng bên dưới để bắt đầu công việc.</p>
             </div>
-            <div class="welcome-quick-action" id="heroAdminAction" style="display: none;">
-              <button class="btn-secondary-white" onclick="App.openAddAppModal()">
-                <span>➕</span> Thêm ứng dụng mới
+            <div class="welcome-quick-action" style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <button class="btn-secondary-white" onclick="App.switchView('workConfirm')">
+                <span>🪪</span> Giấy Xác Nhận Công
               </button>
+              <div id="heroAdminAction" style="display: none;">
+                <button class="btn-secondary-white" onclick="App.openAddAppModal()">
+                  <span>➕</span> Thêm ứng dụng mới
+                </button>
+              </div>
             </div>
           </div>
 
@@ -219,10 +236,16 @@
           <div class="section-header-row">
             <h3 class="section-title">
               <span>📂</span> Danh sách ứng dụng được phân quyền
+              <span id="syncIndicator" class="bg-sync-indicator" style="display: none;">
+                <span class="bg-sync-dot"></span> Đang đồng bộ...
+              </span>
             </h3>
-            <span id="appCountDisplay" style="font-size: 0.85rem; color: var(--neutral-500); font-weight: 600;">
-              Hiển thị: 0 ứng dụng
-            </span>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span id="appCountDisplay" style="font-size: 0.85rem; color: var(--neutral-500); font-weight: 600;">
+                Hiển thị: 0 ứng dụng
+              </span>
+              <button id="btnFastRefresh" class="btn-action" title="Tải lại dữ liệu mới nhất từ máy chủ" onclick="App.loadDashboardData(true)">🔄 Làm mới</button>
+            </div>
           </div>
 
           <!-- GRID CHỨA CÁC THẺ ỨNG DỤNG (APP CARDS) -->
@@ -250,6 +273,231 @@
             <h4 class="empty-state-title" style="color: var(--danger-600);">Không thể kết nối máy chủ</h4>
             <p class="empty-state-desc" id="appsErrorMessage">Hệ thống không thể tải dữ liệu từ Google Apps Script. Vui lòng kiểm tra lại kết nối mạng hoặc liên hệ IT.</p>
             <button class="btn-primary" style="width: auto; margin: 0 auto;" onclick="App.loadDashboardData()">Thử lại</button>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             VIEW 1B: GIẤY XÁC NHẬN CÔNG (NGƯỜI LAO ĐỘNG -> KẾ TOÁN -> IT)
+             =================================================================== -->
+        <section id="viewWorkConfirm" class="view-section">
+          <!-- Thanh quy trình luân chuyển 3 bước -->
+          <div class="wc-workflow-banner">
+            <div class="wc-workflow-steps">
+              <span class="wc-step-pill">1️⃣ Người lao động khai báo</span>
+              <span class="wc-step-arrow">➔</span>
+              <span class="wc-step-pill">2️⃣ Bộ phận Kế toán xác nhận</span>
+              <span class="wc-step-arrow">➔</span>
+              <span class="wc-step-pill">3️⃣ Bộ phận IT làm thẻ &amp; In phiếu ký</span>
+            </div>
+            <button type="button" class="btn-action" onclick="App.loadWorkConfirmations()">🔄 Làm mới danh sách</button>
+          </div>
+
+          <!-- Sub-tabs chuyển đổi giữa Khai báo (NLĐ) / Duyệt (Kế toán) / Làm thẻ & In (IT) -->
+          <div class="admin-nav-tabs" id="wcSubTabs" style="margin-bottom: 22px;">
+            <button type="button" class="admin-tab-btn active" data-wc-tab="wcTabForm" onclick="App.switchWcTab('wcTabForm')">
+              <span>📝 Khai báo &amp; Phiếu của tôi</span>
+            </button>
+            <button type="button" class="admin-tab-btn" id="btnWcTabAccounting" data-wc-tab="wcTabAccounting" style="display: none;" onclick="App.switchWcTab('wcTabAccounting')">
+              <span>📋 Bộ phận Kế toán xác nhận</span>
+              <span id="badgeWcAccounting" class="chip-count" style="background: #fef3c7; color: #b45309;">0</span>
+            </button>
+            <button type="button" class="admin-tab-btn" id="btnWcTabIT" data-wc-tab="wcTabIT" style="display: none;" onclick="App.switchWcTab('wcTabIT')">
+              <span>💻 Bộ phận IT làm thẻ &amp; In phiếu</span>
+              <span id="badgeWcIT" class="chip-count" style="background: #e0f2fe; color: #0369a1;">0</span>
+            </button>
+          </div>
+
+          <!-- TAB 1: FORM KHAI BÁO GIẤY XÁC NHẬN CÔNG (NHƯ HÌNH) & LỊCH SỬ CÁ NHÂN -->
+          <div id="wcTabForm" class="wc-tab-panel">
+            <div class="wc-paper-card">
+              <div class="wc-header">
+                <div class="wc-company-sub">CN CÔNG TY CỔ PHẦN LONG KHẢI TẠI ĐÀ NẴNG</div>
+                <h2 class="wc-main-title">GIẤY XÁC NHẬN CÔNG</h2>
+                <div class="wc-subtitle-pill">(Đăng ký giải trình: Mất thẻ / Quên thẻ / Thẻ hỏng)</div>
+              </div>
+
+              <form id="formWorkConfirm">
+                <!-- Hàng 1: Mã số - Họ & tên - Bộ phận -->
+                <div class="wc-row-3">
+                  <div>
+                    <label class="wc-field-label" for="wcMaSo">Mã số</label>
+                    <input type="text" id="wcMaSo" class="wc-input-readonly" readonly>
+                  </div>
+                  <div>
+                    <label class="wc-field-label" for="wcHoTen">Họ &amp; tên</label>
+                    <input type="text" id="wcHoTen" class="wc-input-readonly" readonly>
+                  </div>
+                  <div>
+                    <label class="wc-field-label" for="wcBoPhan">Bộ phận</label>
+                    <input type="text" id="wcBoPhan" class="wc-input-readonly" readonly>
+                  </div>
+                </div>
+
+                <!-- Hàng 2: Ngày cần xác nhận - Ca làm việc -->
+                <div class="wc-row-2">
+                  <div>
+                    <label class="wc-field-label" for="wcNgayXacNhan">Ngày cần xác nhận <span class="req">*</span></label>
+                    <input type="date" id="wcNgayXacNhan" class="wc-input" required>
+                    <span class="wc-helper-note">Mặc định là hôm nay, có thể chỉnh lại nếu không phải ngày hôm nay.</span>
+                  </div>
+                  <div>
+                    <label class="wc-field-label" for="wcCaLamViec">Ca làm việc <span class="req">*</span></label>
+                    <select id="wcCaLamViec" class="wc-input" required>
+                      <option value="HC: 08h00-16h30">HC: 08h00-16h30</option>
+                      <option value="HC: 07h30-16h30">HC: 07h30-16h30</option>
+                      <option value="Ca 1: 06h00-14h00">Ca 1: 06h00-14h00</option>
+                      <option value="Ca 2: 14h00-22h00">Ca 2: 14h00-22h00</option>
+                      <option value="Ca 3: 22h00-06h00">Ca 3: 22h00-06h00</option>
+                      <option value="Ca hành chính tăng ca">Ca hành chính tăng ca</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Khung 3: Chi tiết giờ thực tế chấm thiếu -->
+                <div class="wc-section-box">
+                  <div class="wc-section-title">
+                    <span>🕒</span> Chi tiết giờ thực tế chấm thiếu
+                  </div>
+                  <div class="wc-time-cards-grid">
+                    <div class="wc-time-subcard">
+                      <label class="wc-time-label" for="wcGioVao">Giờ vào thực tế (Check-in)</label>
+                      <input type="time" id="wcGioVao" class="wc-input" value="08:00">
+                    </div>
+                    <div class="wc-time-subcard">
+                      <label class="wc-time-label" for="wcGioRa">Giờ ra thực tế (Check-out)</label>
+                      <input type="time" id="wcGioRa" class="wc-input" value="16:30">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Khung 4: Lý do giải trình -->
+                <div class="wc-section-box">
+                  <div class="wc-section-title">
+                    <span>🪪</span> Lý do giải trình <span class="req" style="color: #ef4444;">*</span>
+                  </div>
+                  <div class="wc-reasons-grid">
+                    <label class="wc-reason-card">
+                      <input type="radio" name="wcLyDo" value="Mất thẻ" checked>
+                      <span>🪪 Mất thẻ</span>
+                    </label>
+                    <label class="wc-reason-card">
+                      <input type="radio" name="wcLyDo" value="Quên thẻ">
+                      <span>❓ Quên thẻ</span>
+                    </label>
+                    <label class="wc-reason-card">
+                      <input type="radio" name="wcLyDo" value="Thẻ hỏng">
+                      <span>🛠️ Thẻ hỏng</span>
+                    </label>
+                    <label class="wc-reason-card">
+                      <input type="radio" name="wcLyDo" value="Cấp mới">
+                      <span>💳 Cấp mới</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Nút Gửi Giấy Xác Nhận Công -->
+                <div class="wc-submit-row">
+                  <button type="submit" id="btnSubmitWorkConfirm" class="btn-wc-submit">
+                    <span>📤</span>
+                    <span>Gửi Giấy Xác Nhận Công</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Bảng Lịch sử Giấy xác nhận công của tôi -->
+            <div class="admin-panel-card">
+              <div class="panel-toolbar">
+                <h4 style="font-size: 1.02rem; font-weight: 700;">📄 Danh sách Giấy xác nhận công đã gửi của bạn</h4>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Mã phiếu</th>
+                      <th>Ngày xác nhận</th>
+                      <th>Ca làm việc</th>
+                      <th>Giờ vào / Giờ ra</th>
+                      <th>Lý do</th>
+                      <th>Tiến độ xử lý</th>
+                      <th>Xác nhận Kế toán</th>
+                      <th>Xử lý IT (Làm thẻ)</th>
+                      <th style="text-align: right;">Phiếu in</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tableMyWcBody">
+                    <tr><td colspan="9" style="text-align: center; padding: 20px;">Chưa có phiếu xác nhận công nào.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: DÀNH CHO BỘ PHẬN KẾ TOÁN XÁC NHẬN & CHUYỂN IT -->
+          <div id="wcTabAccounting" class="wc-tab-panel" style="display: none;">
+            <div class="admin-panel-card">
+              <div class="panel-toolbar">
+                <div>
+                  <h4 style="font-size: 1.05rem; font-weight: 700;">📋 Danh sách Giấy xác nhận công chờ Bộ phận Kế toán duyệt</h4>
+                  <p style="font-size: 0.84rem; color: var(--neutral-500); margin-top: 2px;">
+                    Sau khi Kế toán bấm <strong>"Xác nhận &amp; Chuyển IT"</strong>, phiếu sẽ tự động chuyển sang Bộ phận IT để làm thẻ và in phiếu cho người lao động ký.
+                  </p>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Mã phiếu</th>
+                      <th>Mã số &amp; Họ tên</th>
+                      <th>Bộ phận</th>
+                      <th>Ngày &amp; Ca</th>
+                      <th>Giờ Vào / Ra</th>
+                      <th>Lý do</th>
+                      <th>Trạng thái</th>
+                      <th style="text-align: right;">Thao tác Kế toán</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tableAccountingWcBody">
+                    <tr><td colspan="8" style="text-align: center; padding: 20px;">Đang tải danh sách...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: DÀNH CHO BỘ PHẬN IT LÀM THẺ & IN PHIẾU CHO NLĐ KÝ -->
+          <div id="wcTabIT" class="wc-tab-panel" style="display: none;">
+            <div class="admin-panel-card">
+              <div class="panel-toolbar">
+                <div>
+                  <h4 style="font-size: 1.05rem; font-weight: 700;">💻 Danh sách phiếu đã được Kế toán xác nhận - Chờ IT làm thẻ &amp; In phiếu</h4>
+                  <p style="font-size: 0.84rem; color: var(--neutral-500); margin-top: 2px;">
+                    Bộ phận IT thực hiện làm thẻ cho người lao động, bấm <strong>"Đã làm thẻ"</strong> và <strong>"🖨️ In phiếu cho NLĐ ký"</strong>.
+                  </p>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Mã phiếu</th>
+                      <th>Mã số &amp; Họ tên</th>
+                      <th>Bộ phận</th>
+                      <th>Ngày &amp; Ca</th>
+                      <th>Giờ Vào / Ra</th>
+                      <th>Lý do</th>
+                      <th>Kế toán xác nhận</th>
+                      <th>Trạng thái</th>
+                      <th style="text-align: right;">Thao tác IT &amp; In phiếu</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tableItWcBody">
+                    <tr><td colspan="9" style="text-align: center; padding: 20px;">Đang tải danh sách...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -405,11 +653,15 @@
             <div class="admin-panel-card">
               <div class="panel-toolbar">
                 <h4 style="font-size: 1.05rem; font-weight: 700;">Danh sách ứng dụng hệ thống</h4>
-                <div style="display: flex; gap: 10px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                   <button class="btn-primary" style="width: auto;" onclick="App.openAddAppModal()">
                     ➕ Thêm ứng dụng
                   </button>
+                  <button class="btn-secondary" onclick="App.openSsoGuideModal()" title="Xem hướng dẫn và copy mã tích hợp đăng nhập một lần (SSO) cho ứng dụng con">
+                    🔑 Mã tích hợp SSO
+                  </button>
                   <button class="btn-secondary" onclick="App.loadAdminApps()">🔄 Nạp lại</button>
+                  <button class="btn-secondary" onclick="App.clearServerCache()" title="Xóa bộ nhớ đệm máy chủ để tải lại dữ liệu mới nhất từ Google Sheets">⚡ Xóa Cache Máy Chủ</button>
                 </div>
               </div>
 
@@ -576,6 +828,9 @@
           <div class="form-group" style="margin-bottom: 14px;">
             <label class="form-label" for="appFormUrl">URL liên kết ứng dụng *</label>
             <input type="url" id="appFormUrl" class="form-control no-icon" placeholder="https://..." required>
+            <small style="display: block; margin-top: 5px; font-size: 0.78rem; color: var(--primary-700);">
+              🔑 Hệ thống tự động đính kèm <code>?sso_token=...</code> vào URL này khi nhân viên bấm <strong>Mở ứng dụng</strong>.
+            </small>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
@@ -773,6 +1028,60 @@
     </div>
   </div>
 
+  <!-- MODAL: HƯỚNG DẪN TÍCH HỢP SSO CHO ỨNG DỤNG CON -->
+  <div id="modalSsoGuide" class="modal-overlay">
+    <div class="modal-dialog" style="max-width: 720px;">
+      <div class="modal-header">
+        <h3 class="modal-title">🔑 Tích hợp Đăng nhập một lần (SSO) cho Ứng dụng con</h3>
+        <button class="btn-modal-close" onclick="App.closeModal('modalSsoGuide')">&times;</button>
+      </div>
+      <div class="modal-body" style="max-height: 72vh; overflow-y: auto; font-size: 0.9rem; line-height: 1.55;">
+        <p style="margin-bottom: 12px; color: var(--neutral-700);">
+          Khi nhân viên bấm <strong>[ MỞ ỨNG DỤNG ]</strong>, Cổng thông tin tự động gắn mã xác thực <code>?sso_token=...</code> vào URL của ứng dụng. Ứng dụng con chỉ cần dùng một trong hai đoạn mã dưới đây để nhận diện nhân viên mà <strong>không cần bắt đăng nhập lại</strong>:
+        </p>
+
+        <div style="margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong>1. Dành cho Web App HTML / JavaScript (GitHub Pages, Web nội bộ):</strong>
+            <button type="button" class="btn-action btn-edit" onclick="App.copySsoCode('ssoSnippetHtml')">📋 Sao chép mã</button>
+          </div>
+          <pre id="ssoSnippetHtml" style="background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 0.8rem;"><code>&lt;!-- Nhúng bộ SDK SSO của Long Khai Corporation --&gt;
+&lt;script src="sso-client.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  LongKhaiSSO.init({
+    verifyOnServer: true,
+    onAuthenticated: function(user) {
+      console.log("Đã đăng nhập SSO:", user.maNhanVien, user.hoTen, user.phongBan, user.role);
+      // Tự động điền thông tin nhân viên vào giao diện ứng dụng con tại đây
+    }
+  });
+&lt;/script&gt;</code></pre>
+        </div>
+
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong>2. Xác thực trực tiếp qua API Cổng thông tin (POST / GET):</strong>
+            <button type="button" class="btn-action btn-edit" onclick="App.copySsoCode('ssoSnippetApi')">📋 Sao chép mã</button>
+          </div>
+          <pre id="ssoSnippetApi" style="background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 0.8rem;"><code>// Đọc sso_token từ URL và xác thực với máy chủ Portal
+const ssoToken = new URLSearchParams(window.location.search).get("sso_token");
+fetch(PORTAL_API_URL, {
+  method: "POST",
+  headers: { "Content-Type": "text/plain;charset=utf-8" },
+  body: JSON.stringify({ action: "verify_sso_token", data: { sso_token: ssoToken } })
+})
+.then(r =&gt; r.json())
+.then(res =&gt; {
+  if (res.success) console.log("Nhân viên:", res.user); // { maNhanVien, hoTen, phongBan, chucVu, role }
+});</code></pre>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-primary" style="width: auto;" onclick="App.closeModal('modalSsoGuide')">Đã hiểu</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: XÁC NHẬN (CONFIRMATION DIALOG) -->
   <div id="modalConfirm" class="modal-overlay">
     <div class="modal-dialog modal-sm">
@@ -793,8 +1102,9 @@
   <!-- CONTAINER CHỨA TOAST NOTIFICATIONS -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <!-- NẠP CẤU HÌNH & CODE JAVASCRIPT CHÍNH -->
+  <!-- NẠP CẤU HÌNH, SSO SDK & CODE JAVASCRIPT CHÍNH -->
   <script src="config.js"></script>
+  <script src="sso-client.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
