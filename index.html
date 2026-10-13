@@ -21,7 +21,7 @@
   <div id="loginScreen" class="login-wrapper">
     <div class="login-card">
       <div class="login-header">
-        <img src="assets/logo.svg" alt="Long Khai Corporation Logo" class="login-logo" onerror="this.src='assets/logo.png';">
+        <img src="assets/logo.svg" alt="Long Khai Corporation Logo" class="login-logo" onerror="if(!this.dataset.try){this.dataset.try='1';this.src='assets/logo.png';}else if(this.dataset.try==='1'){this.dataset.try='2';this.src='logo.svg';}else if(this.dataset.try==='2'){this.dataset.try='3';this.src='logo.png';}">
         <h1 class="login-title" id="loginPortalTitle">CỔNG THÔNG TIN NỘI BỘ</h1>
         <p class="login-subtitle" id="loginCompanyName">LONG KHAI CORPORATION</p>
       </div>
@@ -90,7 +90,7 @@
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
         <div class="brand-wrapper">
-          <img src="assets/logo.svg" alt="Long Khai Logo" class="brand-logo-img" onerror="this.src='assets/logo.png';">
+          <img src="assets/logo.svg" alt="Long Khai Logo" class="brand-logo-img" onerror="if(!this.dataset.try){this.dataset.try='1';this.src='assets/logo.png';}else if(this.dataset.try==='1'){this.dataset.try='2';this.src='logo.svg';}else if(this.dataset.try==='2'){this.dataset.try='3';this.src='logo.png';}">
           <div class="brand-text">
             <h2 id="sidebarTitle">LONG KHAI</h2>
             <p>PORTAL NỘI BỘ</p>
@@ -150,7 +150,7 @@
       <header class="top-header">
         <div class="header-left">
           <button id="btnMobileToggle" class="mobile-menu-btn" title="Menu">☰</button>
-          <img src="assets/logo.svg" alt="Long Khai" class="header-brand-logo" onerror="this.src='assets/logo.png';">
+          <img src="assets/logo.svg" alt="Long Khai" class="header-brand-logo" onerror="if(!this.dataset.try){this.dataset.try='1';this.src='assets/logo.png';}else if(this.dataset.try==='1'){this.dataset.try='2';this.src='logo.svg';}else if(this.dataset.try==='2'){this.dataset.try='3';this.src='logo.png';}">
           <div class="header-portal-info">
             <span class="header-company-name" id="headerCompanyName">LONG KHAI CORPORATION</span>
             <span class="header-page-title" id="headerPageTitle">Trang chủ ứng dụng</span>

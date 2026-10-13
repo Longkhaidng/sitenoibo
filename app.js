@@ -783,7 +783,8 @@ const App = {
     }
     const latest = notifs[0];
     banner.style.display = "flex";
-    textElem.innerText = `${latest.tieuDe} (${latest.ngayDang || ""}) - ${latest.noiDung}`;
+    const dateLabel = latest.ngayDang ? this.formatDateVN(latest.ngayDang) : "";
+    textElem.innerText = `${latest.tieuDe} (${dateLabel}) - ${latest.noiDung}`;
   },
 
   renderCategoryChips: function (categories, applications) {
@@ -1013,7 +1014,7 @@ const App = {
             <h4 class="notification-title">${this.escapeHtml(n.tieuDe)}</h4>
             <div class="notification-meta">
               <span>👤 ${this.escapeHtml(n.nguoiDang || "Admin")}</span>
-              <span>📅 ${this.escapeHtml(n.ngayDang || "")}</span>
+              <span>📅 ${this.escapeHtml(this.formatDateVN(n.ngayDang || ""))}</span>
               <span class="user-badge-role role-user">${this.escapeHtml(n.doiTuong || "All")}</span>
             </div>
           </div>
@@ -1061,7 +1062,9 @@ const App = {
     document.getElementById("profChucVu").innerText = user.chucVu || "Nhân viên";
     document.getElementById("profRole").innerText = user.role || "User";
     document.getElementById("profTrangThai").innerText = user.trangThai || "Active";
-    document.getElementById("profLanDangNhap").innerText = user.lanDangNhapCuoi || "Mới đăng nhập";
+    document.getElementById("profLanDangNhap").innerText = user.lanDangNhapCuoi
+      ? this.formatDateTimeVN(user.lanDangNhapCuoi)
+      : "Mới đăng nhập";
   },
 
   handleChangePassword: async function () {
@@ -1406,7 +1409,7 @@ const App = {
                 ${isActive ? "● Hoạt động" : "○ Khóa"}
               </span>
             </td>
-            <td style="font-size: 0.8rem; color: var(--neutral-500);">${this.escapeHtml(u.lanDangNhapCuoi || "Chưa")}</td>
+            <td style="font-size: 0.8rem; color: var(--neutral-500);">${this.escapeHtml(u.lanDangNhapCuoi ? this.formatDateTimeVN(u.lanDangNhapCuoi) : "Chưa")}</td>
             <td style="text-align: right;">
               <div class="action-buttons" style="justify-content: flex-end;">
                 <button class="btn-action btn-edit" onclick="App.openEditUserModal(${JSON.stringify(u).replace(/"/g, '&quot;')})">✏ Sửa</button>
@@ -1519,7 +1522,7 @@ const App = {
       logs.slice(0, 50).forEach((l) => {
         html += `
           <tr>
-            <td style="white-space: nowrap; font-size: 0.82rem;">${this.escapeHtml(l.thoiGian)}</td>
+            <td style="white-space: nowrap; font-size: 0.82rem;">${this.escapeHtml(this.formatDateTimeVN(l.thoiGian))}</td>
             <td><code>${this.escapeHtml(l.maNhanVien || "-")}</code></td>
             <td>${this.escapeHtml(l.hoTen || "-")}</td>
             <td><strong>${this.escapeHtml(l.action)}</strong></td>
@@ -1660,7 +1663,7 @@ const App = {
         nguoiXuLyIT: "",
         thoiGianIT: "",
         ghiChuIT: "",
-        ngayTao: now.toLocaleString("vi-VN")
+        ngayTao: this.formatDateTimeVN(now)
       };
 
       list.unshift(newItem);
@@ -1678,7 +1681,7 @@ const App = {
       const decision = data.decision === "reject" ? "TuChoi" : "ChoIT";
       list[idx].trangThai = decision;
       list[idx].nguoiXacNhanKT = `${user.hoTen} (${user.maNhanVien})`;
-      list[idx].thoiGianKT = new Date().toLocaleString("vi-VN");
+      list[idx].thoiGianKT = this.formatDateTimeVN(new Date());
       list[idx].ghiChuKT =
         data.ghiChuKT || (decision === "ChoIT" ? "Đã kiểm tra & chuyển IT làm thẻ" : "Từ chối");
       saveList(list);
@@ -1696,7 +1699,7 @@ const App = {
       if (idx === -1) return { success: false, message: "Không tìm thấy phiếu!" };
       list[idx].trangThai = "HoanThanh";
       list[idx].nguoiXuLyIT = `${user.hoTen} (${user.maNhanVien})`;
-      list[idx].thoiGianIT = new Date().toLocaleString("vi-VN");
+      list[idx].thoiGianIT = this.formatDateTimeVN(new Date());
       list[idx].ghiChuIT = data.ghiChuIT || "Đã làm thẻ & in phiếu xác nhận công cho NLĐ ký";
       saveList(list);
       return {
@@ -1861,13 +1864,118 @@ const App = {
     return `<span class="wc-badge">${this.escapeHtml(status)}</span>`;
   },
 
-  formatDateVN: function (dateStr) {
-    if (!dateStr) return "-";
-    const parts = String(dateStr).split("-");
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  /**
+   * Chuẩn hóa Ngày sang định dạng dd/MM/yyyy
+   */
+  formatDateVN: function (dateVal) {
+    if (!dateVal) return "-";
+    if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+      const dd = String(dateVal.getDate()).padStart(2, "0");
+      const mm = String(dateVal.getMonth() + 1).padStart(2, "0");
+      const yyyy = dateVal.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
     }
-    return dateStr;
+
+    const str = String(dateVal).trim().replace(/^'/, "");
+    if (!str || str === "-") return "-";
+
+    // Đã ở định dạng dd/MM/yyyy
+    const mVN = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mVN) {
+      return `${mVN[1].padStart(2, "0")}/${mVN[2].padStart(2, "0")}/${mVN[3]}`;
+    }
+
+    // Định dạng yyyy-MM-dd hoặc yyyy/MM/dd (kể cả có kèm giờ phía sau)
+    const mIso = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (mIso) {
+      return `${mIso[3].padStart(2, "0")}/${mIso[2].padStart(2, "0")}/${mIso[1]}`;
+    }
+
+    // Chuỗi Date tiếng Anh từ Google Sheets (ví dụ: Tue Oct 13 2026 ...)
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+      const dd = String(parsed.getDate()).padStart(2, "0");
+      const mm = String(parsed.getMonth() + 1).padStart(2, "0");
+      const yyyy = parsed.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+
+    return str;
+  },
+
+  /**
+   * Chuẩn hóa Giờ (Giờ vào / Giờ ra) sang định dạng HH:mm
+   * Xử lý triệt để chuỗi "Sat Dec 30 1899 08:00:00 GMT+0642 (Indochina Time)" từ Google Sheets
+   */
+  formatTimeHHmm: function (timeVal) {
+    if (!timeVal) return "--:--";
+    const str = String(timeVal).trim().replace(/^'/, "");
+    if (!str || str === "--:--" || str === "-") return "--:--";
+
+    // Khớp trực tiếp HH:mm hoặc HH:mm:ss
+    const mExact = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+    if (mExact) {
+      return `${mExact[1].padStart(2, "0")}:${mExact[2]}`;
+    }
+
+    // Trích xuất HH:mm trực tiếp từ chuỗi Date của Google Sheets (vd: Sat Dec 30 1899 08:00:00 GMT+0642)
+    // Không dùng new Date(str).getMinutes() vì lịch sử múi giờ năm 1899 (+06:42) sẽ làm lệch 18 phút.
+    const mInStr = str.match(/(?:^|\s|T)(\d{1,2}):(\d{2})(?::\d{2})?/);
+    if (mInStr) {
+      return `${mInStr[1].padStart(2, "0")}:${mInStr[2]}`;
+    }
+
+    return str;
+  },
+
+  /**
+   * Chuẩn hóa Ngày + Giờ sang định dạng dd/MM/yyyy HH:mm
+   * Xử lý cả "yyyy-MM-dd HH:mm:ss" và "Tue Oct 13 2026 12:48:09 GMT+0700 (Indochina Time)"
+   */
+  formatDateTimeVN: function (dtVal) {
+    if (!dtVal) return "";
+    if (dtVal instanceof Date && !isNaN(dtVal.getTime())) {
+      const dd = String(dtVal.getDate()).padStart(2, "0");
+      const mm = String(dtVal.getMonth() + 1).padStart(2, "0");
+      const yyyy = dtVal.getFullYear();
+      const hh = String(dtVal.getHours()).padStart(2, "0");
+      const mi = String(dtVal.getMinutes()).padStart(2, "0");
+      return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
+    }
+
+    const str = String(dtVal).trim().replace(/^'/, "");
+    if (!str || str === "-") return "";
+
+    // 1. Định dạng yyyy-MM-dd HH:mm(:ss)
+    const mIso = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})[T\s]+(\d{1,2}):(\d{2})/);
+    if (mIso) {
+      return `${mIso[3].padStart(2, "0")}/${mIso[2].padStart(2, "0")}/${mIso[1]} ${mIso[4].padStart(2, "0")}:${mIso[5]}`;
+    }
+
+    // 2. Định dạng dd/MM/yyyy HH:mm(:ss)
+    const mVN1 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[\s,]+(\d{1,2}):(\d{2})/);
+    if (mVN1) {
+      return `${mVN1[1].padStart(2, "0")}/${mVN1[2].padStart(2, "0")}/${mVN1[3]} ${mVN1[4].padStart(2, "0")}:${mVN1[5]}`;
+    }
+
+    // 3. Định dạng HH:mm(:ss) dd/MM/yyyy (từ toLocaleString('vi-VN'))
+    const mVN2 = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?[\s,]+(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (mVN2) {
+      return `${mVN2[3].padStart(2, "0")}/${mVN2[4].padStart(2, "0")}/${mVN2[5]} ${mVN2[1].padStart(2, "0")}:${mVN2[2]}`;
+    }
+
+    // 4. Chuỗi Date tiếng Anh từ Google Sheets (ví dụ: Tue Oct 13 2026 12:48:09 GMT+0700 ...)
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+      const dd = String(parsed.getDate()).padStart(2, "0");
+      const mm = String(parsed.getMonth() + 1).padStart(2, "0");
+      const yyyy = parsed.getFullYear();
+      const hh = String(parsed.getHours()).padStart(2, "0");
+      const mi = String(parsed.getMinutes()).padStart(2, "0");
+      return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
+    }
+
+    return this.formatDateVN(str);
   },
 
   /**
@@ -1885,16 +1993,21 @@ const App = {
 
     let html = "";
     list.forEach((item) => {
+      const gioVaoStr = this.formatTimeHHmm(item.gioVao);
+      const gioRaStr = this.formatTimeHHmm(item.gioRa);
+      const thoiGianKTStr = this.formatDateTimeVN(item.thoiGianKT);
+      const thoiGianITStr = this.formatDateTimeVN(item.thoiGianIT);
+
       html += `
         <tr>
           <td><code>${this.escapeHtml(item.maPhieu)}</code></td>
           <td><strong>${this.escapeHtml(this.formatDateVN(item.ngayXacNhan))}</strong></td>
           <td>${this.escapeHtml(item.caLamViec)}</td>
-          <td><span style="color: #1d4ed8; font-weight: 600;">${this.escapeHtml(item.gioVao)}</span> → <span style="color: #1d4ed8; font-weight: 600;">${this.escapeHtml(item.gioRa)}</span></td>
+          <td><span style="color: #1d4ed8; font-weight: 600;">${this.escapeHtml(gioVaoStr)}</span> → <span style="color: #1d4ed8; font-weight: 600;">${this.escapeHtml(gioRaStr)}</span></td>
           <td><strong>${this.escapeHtml(item.lyDo)}</strong></td>
           <td>${this.renderWcStatusBadge(item.trangThai)}</td>
-          <td style="font-size: 0.82rem;">${item.nguoiXacNhanKT ? `✅ ${this.escapeHtml(item.nguoiXacNhanKT)}<br><span style="color:var(--neutral-400)">${this.escapeHtml(item.thoiGianKT)}</span>` : `<span style="color:var(--neutral-400)">Đang chờ...</span>`}</td>
-          <td style="font-size: 0.82rem;">${item.nguoiXuLyIT ? `🪪 ${this.escapeHtml(item.nguoiXuLyIT)}<br><span style="color:var(--neutral-400)">${this.escapeHtml(item.thoiGianIT)}</span>` : `<span style="color:var(--neutral-400)">Đang chờ...</span>`}</td>
+          <td style="font-size: 0.82rem;">${item.nguoiXacNhanKT ? `✅ ${this.escapeHtml(item.nguoiXacNhanKT)}<br><span style="color:var(--neutral-400)">${this.escapeHtml(thoiGianKTStr)}</span>` : `<span style="color:var(--neutral-400)">Đang chờ...</span>`}</td>
+          <td style="font-size: 0.82rem;">${item.nguoiXuLyIT ? `🪪 ${this.escapeHtml(item.nguoiXuLyIT)}<br><span style="color:var(--neutral-400)">${this.escapeHtml(thoiGianITStr)}</span>` : `<span style="color:var(--neutral-400)">Đang chờ...</span>`}</td>
           <td style="text-align: right;">
             <button type="button" class="btn-action btn-edit" onclick="App.printWorkConfirmation(${item.id})" title="Xem và in phiếu xác nhận công">
               🖨️ Xem / In phiếu
@@ -1923,6 +2036,9 @@ const App = {
     let html = "";
     list.forEach((item) => {
       const isPendingKT = item.trangThai === "ChoKeToan";
+      const gioVaoStr = this.formatTimeHHmm(item.gioVao);
+      const gioRaStr = this.formatTimeHHmm(item.gioRa);
+
       html += `
         <tr>
           <td><code>${this.escapeHtml(item.maPhieu)}</code></td>
@@ -1935,7 +2051,7 @@ const App = {
             <strong>${this.escapeHtml(this.formatDateVN(item.ngayXacNhan))}</strong><br>
             <span style="font-size: 0.8rem; color: var(--neutral-500);">${this.escapeHtml(item.caLamViec)}</span>
           </td>
-          <td><strong>${this.escapeHtml(item.gioVao)} - ${this.escapeHtml(item.gioRa)}</strong></td>
+          <td><strong>${this.escapeHtml(gioVaoStr)} - ${this.escapeHtml(gioRaStr)}</strong></td>
           <td><span class="user-badge-role role-manager">${this.escapeHtml(item.lyDo)}</span></td>
           <td>${this.renderWcStatusBadge(item.trangThai)}</td>
           <td style="text-align: right;">
@@ -1985,6 +2101,9 @@ const App = {
     list.forEach((item) => {
       const isReadyForIT = item.trangThai === "ChoIT";
       const isCompleted = item.trangThai === "HoanThanh";
+      const gioVaoStr = this.formatTimeHHmm(item.gioVao);
+      const gioRaStr = this.formatTimeHHmm(item.gioRa);
+      const thoiGianKTStr = this.formatDateTimeVN(item.thoiGianKT);
 
       html += `
         <tr>
@@ -1998,12 +2117,12 @@ const App = {
             <strong>${this.escapeHtml(this.formatDateVN(item.ngayXacNhan))}</strong><br>
             <span style="font-size: 0.8rem; color: var(--neutral-500);">${this.escapeHtml(item.caLamViec)}</span>
           </td>
-          <td><strong>${this.escapeHtml(item.gioVao)} - ${this.escapeHtml(item.gioRa)}</strong></td>
+          <td><strong>${this.escapeHtml(gioVaoStr)} - ${this.escapeHtml(gioRaStr)}</strong></td>
           <td><span class="user-badge-role role-admin">${this.escapeHtml(item.lyDo)}</span></td>
           <td style="font-size: 0.82rem;">
             ${
               item.nguoiXacNhanKT
-                ? `✅ ${this.escapeHtml(item.nguoiXacNhanKT)}<br><span style="color:var(--neutral-400)">${this.escapeHtml(item.thoiGianKT)}</span>`
+                ? `✅ ${this.escapeHtml(item.nguoiXacNhanKT)}<br><span style="color:var(--neutral-400)">${this.escapeHtml(thoiGianKTStr)}</span>`
                 : `<span style="color:#d97706;">⏳ Chờ Kế toán duyệt</span>`
             }
           </td>
@@ -2102,6 +2221,12 @@ const App = {
       this.showToast("Không tìm thấy dữ liệu phiếu để in!", "error");
       return;
     }
+
+    const gioVaoStr = this.formatTimeHHmm(item.gioVao);
+    const gioRaStr = this.formatTimeHHmm(item.gioRa);
+    const thoiGianKTStr = this.formatDateTimeVN(item.thoiGianKT);
+    const thoiGianITStr = this.formatDateTimeVN(item.thoiGianIT);
+    const ngayTaoStr = item.ngayTao ? this.formatDateTimeVN(item.ngayTao) : this.formatDateVN(new Date());
 
     const reasons = ["Mất thẻ", "Quên thẻ", "Thẻ hỏng", "Cấp mới"];
     const reasonsHtml = reasons
@@ -2261,7 +2386,7 @@ const App = {
       </div>
       <div class="slip-code">
         <strong>Mã phiếu: ${this.escapeHtml(item.maPhieu)}</strong><br>
-        <span>Ngày lập: ${this.escapeHtml(item.ngayTao || new Date().toLocaleDateString("vi-VN"))}</span>
+        <span>Ngày lập: ${this.escapeHtml(ngayTaoStr)}</span>
       </div>
     </div>
 
@@ -2289,9 +2414,9 @@ const App = {
       </tr>
       <tr>
         <th>Giờ vào thực tế (Check-in)</th>
-        <td><strong>${this.escapeHtml(item.gioVao)}</strong></td>
+        <td><strong>${this.escapeHtml(gioVaoStr)}</strong></td>
         <th>Giờ ra thực tế (Check-out)</th>
-        <td><strong>${this.escapeHtml(item.gioRa)}</strong></td>
+        <td><strong>${this.escapeHtml(gioRaStr)}</strong></td>
       </tr>
       <tr>
         <th>Lý do giải trình</th>
@@ -2302,7 +2427,7 @@ const App = {
         <td colspan="3">
           ${
             item.nguoiXacNhanKT
-              ? `Đã xác nhận bởi: <strong>${this.escapeHtml(item.nguoiXacNhanKT)}</strong> lúc ${this.escapeHtml(item.thoiGianKT)} (${this.escapeHtml(item.ghiChuKT)})`
+              ? `Đã xác nhận bởi: <strong>${this.escapeHtml(item.nguoiXacNhanKT)}</strong> lúc ${this.escapeHtml(thoiGianKTStr)} (${this.escapeHtml(item.ghiChuKT)})`
               : `Chờ Bộ phận Kế toán xác nhận`
           }
         </td>
@@ -2312,7 +2437,7 @@ const App = {
         <td colspan="3">
           ${
             item.nguoiXuLyIT
-              ? `Đã xử lý bởi: <strong>${this.escapeHtml(item.nguoiXuLyIT)}</strong> lúc ${this.escapeHtml(item.thoiGianIT)} (${this.escapeHtml(item.ghiChuIT)})`
+              ? `Đã xử lý bởi: <strong>${this.escapeHtml(item.nguoiXuLyIT)}</strong> lúc ${this.escapeHtml(thoiGianITStr)} (${this.escapeHtml(item.ghiChuIT)})`
               : `Chờ Bộ phận IT xử lý`
           }
         </td>
