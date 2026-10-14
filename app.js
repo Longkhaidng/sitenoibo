@@ -21,6 +21,14 @@ const App = {
       canProcessIT: false
     },
     wcActiveTab: "wcTabForm",
+    myLeaveRequests: [],
+    allLeaveRequests: [],
+    lrPermissions: {
+      canApproveTeamLeader: false,
+      canApproveDeptHead: false,
+      canViewPlanning: false
+    },
+    lrActiveTab: "lrTabForm",
     activeCategory: "ALL",
     searchQuery: "",
     currentView: "dashboard",
@@ -238,10 +246,10 @@ const App = {
               {
                 id: 4,
                 tenUngDung: "Đăng ký nghỉ phép",
-                moTa: "Hệ thống nộp đơn nghỉ phép, xin công tác trực tuyến",
+                moTa: "Nộp đơn nghỉ phép online, duyệt 3 cấp & tự động thông báo cắt cơm ca",
                 danhMuc: "HCNS",
                 icon: "📝",
-                url: "https://example.com/leave-request",
+                url: "#leaveRequest",
                 thuTu: 3,
                 trangThai: "Active",
                 quyenTruyCap: "All"
@@ -482,6 +490,15 @@ const App = {
         this.handleSubmitWorkConfirm();
       });
     }
+
+    // Form Đơn xin nghỉ phép
+    const formLeaveRequest = document.getElementById("formLeaveRequest");
+    if (formLeaveRequest) {
+      formLeaveRequest.addEventListener("submit", (e) => {
+        e.preventDefault();
+        this.handleSubmitLeaveRequest();
+      });
+    }
   },
 
   // ==========================================================================
@@ -580,13 +597,15 @@ const App = {
     // Phân quyền hiển thị các mục menu ứng dụng trên Sidebar
     this.updateSidebarAppPermissions(user);
 
-    // Cập nhật thông tin Profile View & Form Giấy Xác Nhận Công
+    // Cập nhật thông tin Profile View, Form Giấy Xác Nhận Công & Form Đơn Nghỉ Phép
     this.renderProfileView(user);
     this.initWorkConfirmForm();
+    this.initLeaveRequestForm();
 
     // Tải dữ liệu Dashboard & đồng bộ số phiếu chờ xử lý
     this.loadDashboardData();
     this.loadWorkConfirmations(true);
+    this.loadLeaveRequests(true);
 
     if (showToast) {
       this.showToast(`Chào mừng ${displayName} quay trở lại!`, "success");
@@ -644,6 +663,7 @@ const App = {
     const titleMap = {
       dashboard: "Trang chủ ứng dụng",
       workConfirm: "Giấy xác nhận công",
+      leaveRequest: "Đơn xin nghỉ phép",
       notifications: "Thông báo nội bộ",
       profile: "Hồ sơ cá nhân",
       admin: "Quản trị hệ thống"
@@ -657,6 +677,10 @@ const App = {
       document.getElementById("viewWorkConfirm").classList.add("active");
       this.initWorkConfirmForm();
       this.loadWorkConfirmations();
+    } else if (viewName === "leaveRequest") {
+      document.getElementById("viewLeaveRequest").classList.add("active");
+      this.initLeaveRequestForm();
+      this.loadLeaveRequests();
     } else if (viewName === "notifications") {
       document.getElementById("viewNotifications").classList.add("active");
       this.renderNotificationsList();
@@ -1352,6 +1376,13 @@ const App = {
     if (app && !this.hasAppAccess(app, this.state.currentUser)) {
       if (event) event.preventDefault();
       this.showToast(`⚠️ Bạn không thuộc nhóm được cấp quyền mở ứng dụng "${appName}"!`, "error");
+      return false;
+    }
+
+    // Nếu là chức năng Đơn xin nghỉ phép nội bộ, chuyển thẳng sang view SPA
+    if (rawUrl === "#leaveRequest" || rawUrl === "leaveRequest" || (appName && appName.toLowerCase().includes("nghỉ phép"))) {
+      if (event) event.preventDefault();
+      this.switchView("leaveRequest");
       return false;
     }
 
@@ -3000,6 +3031,1059 @@ const App = {
         <h4>BỘ PHẬN IT</h4>
         <p>(Làm thẻ &amp; In phiếu)</p>
         ${item.nguoiXuLyIT ? `<div class="sign-stamp">✔ ĐÃ LÀM THẺ &amp; IN</div><br><strong>${this.escapeHtml(item.nguoiXuLyIT)}</strong>` : `<div style="margin-top:12px;">...........................</div>`}
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    printWin.document.open();
+    printWin.document.write(htmlContent);
+    printWin.document.close();
+  },
+
+  // ==========================================================================
+  // CHỨC NĂNG: ĐƠN XIN NGHỈ PHÉP & QUẢN LÝ CẮT CƠM
+  // (NGƯỜI LAO ĐỘNG -> TỔ TRƯỞNG -> TRƯỞNG BỘ PHẬN -> NV KẾ HOẠCH BÁO CƠM)
+  // ==========================================================================
+
+  computeLrPermissions: function () {
+    const u = this.state.currentUser;
+    if (!u) return { canApproveTeamLeader: false, canApproveDeptHead: false, canViewPlanning: false };
+
+    const isAdmin = String(u.role || "").toUpperCase() === "ADMIN";
+    const roleLower = String(u.role || "").toLowerCase();
+    const deptLower = String(u.phongBan || "").trim().toLowerCase();
+    const posLower = String(u.chucVu || "").trim().toLowerCase();
+
+    // 1. Quyền Tổ trưởng duyệt: Tổ trưởng, Trưởng nhóm, Quản lý, Admin
+    const canApproveTeamLeader =
+      isAdmin ||
+      roleLower === "manager" ||
+      roleLower.includes("leader") ||
+      posLower.includes("tổ trưởng") ||
+      posLower.includes("nhóm trưởng") ||
+      posLower.includes("trưởng nhóm");
+
+    // 2. Quyền Trưởng bộ phận duyệt: Trưởng bộ phận, Trưởng phòng, Quản lý, Admin
+    const canApproveDeptHead =
+      isAdmin ||
+      roleLower === "manager" ||
+      posLower.includes("trưởng bộ phận") ||
+      posLower.includes("trưởng phòng") ||
+      posLower.includes("phó phòng") ||
+      posLower.includes("giám đốc");
+
+    // 3. Quyền Nhân viên kế hoạch / Kinh tế xem danh sách sắp xếp cắt cơm
+    const canViewPlanning =
+      isAdmin ||
+      roleLower === "manager" ||
+      deptLower.includes("kế hoạch") ||
+      deptLower.includes("kinh tế") ||
+      deptLower.includes("căn tin") ||
+      deptLower.includes("bếp") ||
+      deptLower.includes("hcns") ||
+      posLower.includes("kế hoạch") ||
+      posLower.includes("kinh tế") ||
+      posLower.includes("thống kê");
+
+    return { canApproveTeamLeader, canApproveDeptHead, canViewPlanning };
+  },
+
+  switchLrTab: function (tabId) {
+    this.state.lrActiveTab = tabId;
+
+    document.querySelectorAll("#lrSubTabs .admin-tab-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.getAttribute("data-lr-tab") === tabId);
+    });
+
+    document.querySelectorAll("#viewLeaveRequest .lr-tab-panel").forEach((panel) => {
+      panel.style.display = panel.id === tabId ? "block" : "none";
+    });
+  },
+
+  initLeaveRequestForm: function () {
+    const u = this.state.currentUser;
+    if (!u) return;
+
+    const elMaNV = document.getElementById("lrMaNhanVien");
+    const elHoTen = document.getElementById("lrHoTen");
+    const elPhongBan = document.getElementById("lrPhongBan");
+    const elSdt = document.getElementById("lrSoDienThoai");
+
+    if (elMaNV) elMaNV.value = u.maNhanVien || "";
+    if (elHoTen) elHoTen.value = u.hoTen || "";
+    if (elPhongBan) elPhongBan.value = u.phongBan || "";
+    if (elSdt && !elSdt.value) elSdt.value = u.soDienThoai || "";
+
+    // Mặc định ngày nghỉ: ngày mai từ 07:30 đến 16:30
+    const elBatDau = document.getElementById("lrNgayBatDau");
+    const elKetThuc = document.getElementById("lrNgayKetThuc");
+    if (elBatDau && !elBatDau.value) {
+      const tomorrow = new Date(Date.now() + 24 * 3600 * 1000);
+      const pad = (n) => String(n).padStart(2, "0");
+      const dStr = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}`;
+      elBatDau.value = `${dStr}T07:30`;
+      if (elKetThuc && !elKetThuc.value) {
+        elKetThuc.value = `${dStr}T16:30`;
+      }
+    }
+
+    this.autoCalculateLeaveDays();
+
+    const catComChecked = document.getElementById("lrCatCom") ? document.getElementById("lrCatCom").checked : false;
+    this.handleCutMealToggle(catComChecked);
+  },
+
+  handleTeamSelectChange: function (teamVal) {
+    // Tự động nhận diện Tổ
+  },
+
+  handleNoTeamLeaderToggle: function (isChecked) {
+    const step2El = document.getElementById("lrWfStep2");
+    if (step2El) {
+      if (isChecked) {
+        step2El.innerHTML = '<del style="color:#94a3b8;">2️⃣ Tổ trưởng</del> <span style="font-size:0.75rem; color:#ea580c; font-weight:700;">(Bỏ qua)</span>';
+      } else {
+        step2El.innerText = "2️⃣ Tổ trưởng duyệt";
+      }
+    }
+  },
+
+  autoCalculateLeaveDays: function () {
+    const startInput = document.getElementById("lrNgayBatDau");
+    const endInput = document.getElementById("lrNgayKetThuc");
+    const badge = document.getElementById("lrDaysBadge");
+    const textNote = document.getElementById("lrDaysCalcText");
+    const hiddenDays = document.getElementById("lrSoNgayNghi");
+
+    if (!startInput || !endInput || !startInput.value || !endInput.value) {
+      return;
+    }
+
+    const dStart = new Date(startInput.value);
+    const dEnd = new Date(endInput.value);
+
+    if (isNaN(dStart.getTime()) || isNaN(dEnd.getTime())) {
+      return;
+    }
+
+    if (dEnd < dStart) {
+      if (badge) badge.innerText = "⚠️ Thời gian không hợp lệ";
+      if (textNote) textNote.innerText = "Ngày giờ kết thúc phải sau ngày giờ bắt đầu!";
+      if (hiddenDays) hiddenDays.value = "0";
+      return;
+    }
+
+    let calculatedDays = 1.0;
+    const isSameDay =
+      dStart.getFullYear() === dEnd.getFullYear() &&
+      dStart.getMonth() === dEnd.getMonth() &&
+      dStart.getDate() === dEnd.getDate();
+
+    if (isSameDay) {
+      const diffHours = (dEnd.getTime() - dStart.getTime()) / (1000 * 60 * 60);
+      calculatedDays = diffHours <= 4.5 ? 0.5 : 1.0;
+    } else {
+      const d1 = new Date(dStart.getFullYear(), dStart.getMonth(), dStart.getDate());
+      const d2 = new Date(dEnd.getFullYear(), dEnd.getMonth(), dEnd.getDate());
+      let daySpan = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+      // Trừ nửa ngày nếu bắt đầu buổi chiều (sau 12:00)
+      if (dStart.getHours() >= 12) {
+        daySpan -= 0.5;
+      }
+      // Trừ nửa ngày nếu kết thúc trước buổi trưa (trước 12:00)
+      if (dEnd.getHours() <= 12) {
+        daySpan -= 0.5;
+      }
+      calculatedDays = Math.max(0.5, daySpan);
+    }
+
+    if (hiddenDays) hiddenDays.value = calculatedDays.toFixed(1);
+    if (badge) badge.innerText = `⚡ ${calculatedDays.toFixed(1)} ngày nghỉ`;
+    if (textNote) {
+      const fDate = (d) => `${d.getDate()}/${d.getMonth() + 1} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      textNote.innerText = `Tự động tính toán từ ${fDate(dStart)} đến ${fDate(dEnd)} (${(calculatedDays * 8).toFixed(0)} giờ làm việc)`;
+    }
+  },
+
+  handleCutMealToggle: function (isChecked) {
+    const warning = document.getElementById("lrCutMealWarning");
+    const box = document.getElementById("lrCutMealBox");
+
+    if (!isChecked) {
+      if (warning) warning.style.display = "none";
+      if (box) box.classList.remove("has-warning");
+      return;
+    }
+
+    const currentHour = new Date().getHours();
+    if (currentHour >= 15) {
+      if (warning) warning.style.display = "flex";
+      if (box) box.classList.add("has-warning");
+    } else {
+      if (warning) warning.style.display = "none";
+      if (box) box.classList.remove("has-warning");
+    }
+  },
+
+  handleSubmitLeaveRequest: async function () {
+    const toNhom = document.getElementById("lrToNhom").value;
+    const soDienThoai = document.getElementById("lrSoDienThoai").value.trim();
+    const caLamViec = document.getElementById("lrCaLamViec").value;
+    const nguoiBanGiao = document.getElementById("lrNguoiBanGiao").value.trim();
+    const ngayBatDau = document.getElementById("lrNgayBatDau").value;
+    const ngayKetThuc = document.getElementById("lrNgayKetThuc").value;
+    const soNgayNghi = Number(document.getElementById("lrSoNgayNghi").value) || 1;
+    const lyDo = document.getElementById("lrLyDo").value.trim();
+    const catCom = document.getElementById("lrCatCom").checked;
+    const khongCoToTruong = document.getElementById("lrKhongCoToTruong").checked;
+
+    const loaiNghiRadio = document.querySelector('input[name="lrLoaiNghi"]:checked');
+    const loaiNghiPhep = loaiNghiRadio ? loaiNghiRadio.value : "Phép năm";
+
+    if (!toNhom) {
+      this.showToast("Vui lòng chọn Tổ / Nhóm trực thuộc!", "warning");
+      document.getElementById("lrToNhom").focus();
+      return;
+    }
+
+    if (!soDienThoai) {
+      this.showToast("Vui lòng nhập số điện thoại liên hệ khi nghỉ!", "warning");
+      document.getElementById("lrSoDienThoai").focus();
+      return;
+    }
+
+    if (!nguoiBanGiao) {
+      this.showToast("Vui lòng nhập họ tên người nhận bàn giao công việc!", "warning");
+      document.getElementById("lrNguoiBanGiao").focus();
+      return;
+    }
+
+    if (!lyDo) {
+      this.showToast("Vui lòng ghi rõ lý do nghỉ phép chi tiết!", "warning");
+      document.getElementById("lrLyDo").focus();
+      return;
+    }
+
+    // Cảnh báo nếu cắt cơm sau 15h
+    const currentHour = new Date().getHours();
+    if (catCom && currentHour >= 15) {
+      const confirmAfter15 = confirm(
+        "⚠️ LƯU Ý BÁO CƠM SAU 15:00:\n\nHiện tại đã sau 15h chiều, Bếp ăn nhà máy đã chốt số liệu suất ăn cho ngày mai.\nBạn cần CHỦ ĐỘNG LIÊN HỆ THÊM với Nhân viên kinh tế phụ trách Tổ để được xác nhận cắt cơm kịp thời!\n\nBạn có chắc chắn muốn gửi đơn ngay bây giờ?"
+      );
+      if (!confirmAfter15) return;
+    }
+
+    const payload = {
+      toNhom,
+      soDienThoai,
+      loaiNghiPhep,
+      caLamViec,
+      ngayBatDau,
+      ngayKetThuc,
+      soNgayNghi,
+      nguoiBanGiao,
+      lyDo,
+      catCom,
+      khongCoToTruong
+    };
+
+    const btn = document.getElementById("btnSubmitLeaveRequest");
+    if (btn) btn.disabled = true;
+
+    try {
+      const res = await this.callApi("submit_leave_request", payload);
+      if (res && res.success) {
+        this.showToast(res.message || "Đã gửi Đơn xin nghỉ phép thành công!", "success");
+        document.getElementById("formLeaveRequest").reset();
+        this.initLeaveRequestForm();
+        this.loadLeaveRequests();
+      } else {
+        // Fallback lưu local storage nếu máy chủ Google Script chưa hỗ trợ endpoint này
+        this.saveLeaveRequestLocally(payload);
+      }
+    } catch (e) {
+      this.saveLeaveRequestLocally(payload);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  },
+
+  saveLeaveRequestLocally: function (data) {
+    try {
+      const storageKey = "PORTAL_LOCAL_LEAVE_REQUESTS";
+      const raw = localStorage.getItem(storageKey);
+      const list = raw ? JSON.parse(raw) : [];
+
+      const u = this.state.currentUser || {};
+      const now = new Date();
+      const dateCode = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+      const timeCode = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      const nextId = list.length + 1;
+      const maDon = `NP-${dateCode}-${String(nextId).padStart(3, "0")}`;
+      const sau15h = now.getHours() >= 15 ? "Có" : "Không";
+      const initialStatus = data.khongCoToTruong ? "ChoTruongBP" : "ChoToTruong";
+
+      const newItem = {
+        id: nextId,
+        maDon: maDon,
+        maNhanVien: u.maNhanVien || "NV001",
+        hoTen: u.hoTen || "Nhân viên",
+        phongBan: u.phongBan || "Sản xuất",
+        toNhom: data.toNhom,
+        soDienThoai: data.soDienThoai,
+        loaiNghiPhep: data.loaiNghiPhep,
+        caLamViec: data.caLamViec,
+        ngayBatDau: data.ngayBatDau,
+        ngayKetThuc: data.ngayKetThuc,
+        soNgayNghi: data.soNgayNghi,
+        nguoiBanGiao: data.nguoiBanGiao,
+        lyDo: data.lyDo,
+        catCom: data.catCom ? "Có" : "Không",
+        gioGuiDon: timeCode,
+        sau15h: sau15h,
+        khongCoToTruong: data.khongCoToTruong ? "Có" : "Không",
+        trangThai: initialStatus,
+        nguoiDuyetTo: data.khongCoToTruong ? "Bỏ qua (Tổ không có Tổ trưởng)" : "",
+        thoiGianDuyetTo: "",
+        ghiChuTo: "",
+        nguoiDuyetBP: "",
+        thoiGianDuyetBP: "",
+        ghiChuBP: "",
+        ngayTao: `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()} ${timeCode}`
+      };
+
+      list.unshift(newItem);
+      localStorage.setItem(storageKey, JSON.stringify(list));
+
+      let msg = `Đã gửi Đơn xin nghỉ phép (${maDon}) thành công!`;
+      if (initialStatus === "ChoTruongBP") {
+        msg += " Đơn đã được chuyển thẳng tới Trưởng bộ phận duyệt.";
+      } else {
+        msg += " Đơn đang chờ Tổ trưởng xác nhận.";
+      }
+      if (data.catCom && sau15h === "Có") {
+        msg += " [LƯU Ý: Nộp sau 15h, vui lòng chủ động liên hệ thêm với Nhân viên kinh tế để báo cắt cơm!]";
+      }
+
+      this.showToast(msg, "success");
+      document.getElementById("formLeaveRequest").reset();
+      this.initLeaveRequestForm();
+      this.loadLeaveRequests();
+    } catch (err) {
+      this.showToast("Không thể gửi đơn xin nghỉ phép, vui lòng thử lại!", "error");
+    }
+  },
+
+  loadLeaveRequests: async function (silent = false) {
+    let perms = this.computeLrPermissions();
+
+    try {
+      const res = await this.callApi("get_leave_requests");
+      if (res && res.success) {
+        this.state.myLeaveRequests = res.myRequests || [];
+        this.state.allLeaveRequests = res.allRequests || [];
+        if (res.permissions) {
+          this.state.lrPermissions = res.permissions;
+        } else {
+          this.state.lrPermissions = perms;
+        }
+      } else {
+        this.loadLeaveRequestsFromLocal();
+      }
+    } catch (e) {
+      this.loadLeaveRequestsFromLocal();
+    }
+
+    this.renderLeaveRequestViews();
+  },
+
+  loadLeaveRequestsFromLocal: function () {
+    try {
+      const raw = localStorage.getItem("PORTAL_LOCAL_LEAVE_REQUESTS");
+      const list = raw ? JSON.parse(raw) : [];
+      const maNV = (this.state.currentUser?.maNhanVien || "").toUpperCase();
+      this.state.myLeaveRequests = list.filter((r) => String(r.maNhanVien || "").toUpperCase() === maNV);
+      this.state.allLeaveRequests = list;
+      this.state.lrPermissions = this.computeLrPermissions();
+    } catch (e) {
+      this.state.myLeaveRequests = [];
+      this.state.allLeaveRequests = [];
+    }
+  },
+
+  renderLeaveRequestViews: function () {
+    const p = this.state.lrPermissions || this.computeLrPermissions();
+
+    // 1. Cập nhật hiển thị các Tab
+    const btnTL = document.getElementById("btnLrTabTeamLeader");
+    const btnDH = document.getElementById("btnLrTabDeptHead");
+    const btnPlan = document.getElementById("btnLrTabPlanning");
+
+    if (btnTL) btnTL.style.display = p.canApproveTeamLeader ? "inline-flex" : "none";
+    if (btnDH) btnDH.style.display = p.canApproveDeptHead ? "inline-flex" : "none";
+    if (btnPlan) btnPlan.style.display = p.canViewPlanning ? "inline-flex" : "none";
+
+    const all = this.state.allLeaveRequests || [];
+    const pendingTL = all.filter((r) => r.trangThai === "ChoToTruong");
+    const pendingDH = all.filter((r) => r.trangThai === "ChoTruongBP");
+    const cutMealCount = all.filter((r) => r.catCom === "Có");
+
+    // Badges trên sub-tabs
+    const badgeTL = document.getElementById("badgeLrTeamLeader");
+    const badgeDH = document.getElementById("badgeLrDeptHead");
+    const badgePlan = document.getElementById("badgeLrPlanning");
+
+    if (badgeTL) badgeTL.innerText = pendingTL.length;
+    if (badgeDH) badgeDH.innerText = pendingDH.length;
+    if (badgePlan) badgePlan.innerText = cutMealCount.length;
+
+    // Badge trên thanh Sidebar
+    const sideBadge = document.getElementById("sidebarLrBadge");
+    if (sideBadge) {
+      let count = 0;
+      if (p.canApproveTeamLeader) count += pendingTL.length;
+      if (p.canApproveDeptHead) count += pendingDH.length;
+      if (count > 0) {
+        sideBadge.innerText = count;
+        sideBadge.style.display = "inline-block";
+      } else {
+        sideBadge.style.display = "none";
+      }
+    }
+
+    // 2. Render các bảng
+    this.renderMyLeaveRequests();
+    if (p.canApproveTeamLeader) this.renderTeamLeaderRequests(pendingTL);
+    if (p.canApproveDeptHead) this.renderDeptHeadRequests(pendingDH);
+    if (p.canViewPlanning) this.renderPlanningRequests(all);
+  },
+
+  formatLeaveStatusBadge: function (status, item) {
+    if (status === "ChoToTruong") {
+      return '<span class="lr-badge lr-badge-pending-tl">⏳ 1. Chờ Tổ trưởng duyệt</span>';
+    }
+    if (status === "ChoTruongBP") {
+      const skipNote = item && item.khongCoToTruong === "Có" ? " (Gửi thẳng)" : "";
+      return `<span class="lr-badge lr-badge-pending-dh">📋 2. Chờ Trưởng BP duyệt${skipNote}</span>`;
+    }
+    if (status === "DaDuyet") {
+      return '<span class="lr-badge lr-badge-approved">✅ 3. Đã duyệt hoàn tất</span>';
+    }
+    if (status === "TuChoi") {
+      return '<span class="lr-badge lr-badge-rejected">❌ Bị từ chối</span>';
+    }
+    return `<span class="lr-badge lr-badge-pending-tl">${this.escapeHtml(status || "Chờ duyệt")}</span>`;
+  },
+
+  renderMyLeaveRequests: function () {
+    const tbody = document.getElementById("tableMyLrBody");
+    if (!tbody) return;
+
+    const list = this.state.myLeaveRequests || [];
+    if (list.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 22px; color: #64748b;">Bạn chưa nộp đơn xin nghỉ phép nào.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    list.forEach((item) => {
+      const isMeal = item.catCom === "Có";
+      const mealBadge = isMeal
+        ? `<span class="lr-badge lr-badge-meal-yes">🍱 Cắt cơm${item.sau15h === "Có" ? ' <span style="color:#b91c1c; font-size:10px;">(Sau 15h)</span>' : ""}</span>`
+        : `<span class="lr-badge lr-badge-meal-no">Không</span>`;
+
+      html += `
+        <tr>
+          <td><strong style="color: #2563eb;">${this.escapeHtml(item.maDon)}</strong></td>
+          <td>${this.escapeHtml(item.toNhom)}</td>
+          <td><span style="font-weight: 600;">${this.escapeHtml(item.loaiNghiPhep)}</span></td>
+          <td>${this.escapeHtml(item.caLamViec)}</td>
+          <td>
+            <div style="font-size: 0.85rem;">Từ: ${this.escapeHtml(item.ngayBatDau)}</div>
+            <div style="font-size: 0.85rem; color: #64748b;">Đến: ${this.escapeHtml(item.ngayKetThuc)}</div>
+          </td>
+          <td><strong style="color: #15803d;">${item.soNgayNghi} ngày</strong></td>
+          <td>${mealBadge}</td>
+          <td>${this.formatLeaveStatusBadge(item.trangThai, item)}</td>
+          <td style="text-align: right;">
+            <button type="button" class="btn-action" onclick="App.printLeaveRequest(${item.id})">🖨️ Xem / In</button>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  },
+
+  renderTeamLeaderRequests: function (pendingItems) {
+    const tbody = document.getElementById("tableTeamLeaderLrBody");
+    if (!tbody) return;
+
+    if (pendingItems.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 22px; color: #15803d; font-weight: 600;">🎉 Tuyệt vời! Hiện không có đơn nghỉ phép nào cần Tổ trưởng duyệt.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    pendingItems.forEach((item) => {
+      const isMeal = item.catCom === "Có";
+      const mealBadge = isMeal
+        ? `<span class="lr-badge lr-badge-meal-yes">🍱 Cắt cơm${item.sau15h === "Có" ? ' <span style="color:#b91c1c; font-size:10px;">(Sau 15h)</span>' : ""}</span>`
+        : `<span class="lr-badge lr-badge-meal-no">Không</span>`;
+
+      html += `
+        <tr>
+          <td><strong style="color: #2563eb;">${this.escapeHtml(item.maDon)}</strong></td>
+          <td>
+            <strong>${this.escapeHtml(item.hoTen)}</strong><br>
+            <span style="font-size: 0.78rem; color: #64748b;">Mã: ${this.escapeHtml(item.maNhanVien)} | SĐT: ${this.escapeHtml(item.soDienThoai)}</span>
+          </td>
+          <td><span class="user-badge-role role-user">${this.escapeHtml(item.toNhom)}</span></td>
+          <td>${this.escapeHtml(item.loaiNghiPhep)}</td>
+          <td>
+            <div style="font-size: 0.82rem;">${this.escapeHtml(item.ngayBatDau)}</div>
+            <div style="font-size: 0.82rem; color: #64748b;">${this.escapeHtml(item.ngayKetThuc)}</div>
+          </td>
+          <td><strong style="color: #15803d;">${item.soNgayNghi} ngày</strong></td>
+          <td>${mealBadge}</td>
+          <td>
+            <div style="font-size: 0.84rem; max-width: 220px;">${this.escapeHtml(item.lyDo)}</div>
+            <div style="font-size: 0.76rem; color: #64748b; margin-top: 3px;">Bàn giao: <strong>${this.escapeHtml(item.nguoiBanGiao || "-")}</strong></div>
+          </td>
+          <td style="text-align: right;">
+            <div class="action-buttons" style="justify-content: flex-end;">
+              <button type="button" class="btn-action btn-edit" style="background:#16a34a; color:#fff;" onclick="App.handleTeamLeaderApprove(${item.id})">✔ Duyệt &amp; Chuyển BP</button>
+              <button type="button" class="btn-action btn-delete" onclick="App.handleTeamLeaderReject(${item.id})">✖ Từ chối</button>
+              <button type="button" class="btn-action" onclick="App.printLeaveRequest(${item.id})">🖨️ In</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  },
+
+  renderDeptHeadRequests: function (pendingItems) {
+    const tbody = document.getElementById("tableDeptHeadLrBody");
+    if (!tbody) return;
+
+    if (pendingItems.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 22px; color: #15803d; font-weight: 600;">🎉 Hiện không có đơn nghỉ phép nào đang chờ Trưởng bộ phận phê duyệt.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    pendingItems.forEach((item) => {
+      const isMeal = item.catCom === "Có";
+      const mealBadge = isMeal
+        ? `<span class="lr-badge lr-badge-meal-yes">🍱 Cắt cơm${item.sau15h === "Có" ? ' <span style="color:#b91c1c; font-size:10px;">(Sau 15h)</span>' : ""}</span>`
+        : `<span class="lr-badge lr-badge-meal-no">Không</span>`;
+
+      const tlInfo = item.nguoiDuyetTo
+        ? `<span style="font-size: 0.8rem; color: #166534;">✔ ${this.escapeHtml(item.nguoiDuyetTo)}<br><small style="color:#64748b;">(${this.escapeHtml(item.thoiGianDuyetTo)})</small></span>`
+        : `<span style="font-size: 0.8rem; color: #b45309;">⚡ Tổ không có Tổ trưởng (Gửi thẳng)</span>`;
+
+      html += `
+        <tr>
+          <td><strong style="color: #2563eb;">${this.escapeHtml(item.maDon)}</strong></td>
+          <td>
+            <strong>${this.escapeHtml(item.hoTen)}</strong><br>
+            <span style="font-size: 0.78rem; color: #64748b;">Mã: ${this.escapeHtml(item.maNhanVien)} | SĐT: ${this.escapeHtml(item.soDienThoai)}</span>
+          </td>
+          <td><span class="user-badge-role role-user">${this.escapeHtml(item.toNhom)}</span></td>
+          <td>${this.escapeHtml(item.loaiNghiPhep)}</td>
+          <td>
+            <strong style="color: #15803d;">${item.soNgayNghi} ngày</strong><br>
+            <span style="font-size: 0.78rem; color: #64748b;">(${this.escapeHtml(item.ngayBatDau)} ➔ ${this.escapeHtml(item.ngayKetThuc)})</span>
+          </td>
+          <td>${mealBadge}</td>
+          <td>${tlInfo}</td>
+          <td>
+            <div style="font-size: 0.84rem; max-width: 220px;">${this.escapeHtml(item.lyDo)}</div>
+            <div style="font-size: 0.76rem; color: #64748b; margin-top: 3px;">Bàn giao: <strong>${this.escapeHtml(item.nguoiBanGiao || "-")}</strong></div>
+          </td>
+          <td style="text-align: right;">
+            <div class="action-buttons" style="justify-content: flex-end;">
+              <button type="button" class="btn-action btn-edit" style="background:#2563eb; color:#fff;" onclick="App.handleDeptHeadApprove(${item.id})">✔ Phê duyệt</button>
+              <button type="button" class="btn-action btn-delete" onclick="App.handleDeptHeadReject(${item.id})">✖ Từ chối</button>
+              <button type="button" class="btn-action" onclick="App.printLeaveRequest(${item.id})">🖨️ In</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  },
+
+  renderPlanningRequests: function (allItems) {
+    const tbody = document.getElementById("tablePlanningLrBody");
+    if (!tbody) return;
+
+    // Cập nhật thống kê
+    const statTotal = document.getElementById("statLrTotalRequests");
+    const statMeal = document.getElementById("statLrCutMealCount");
+    const statAfter15 = document.getElementById("statLrAfter15hCount");
+    const statApproved = document.getElementById("statLrApprovedCount");
+
+    if (statTotal) statTotal.innerText = allItems.length;
+    if (statMeal) statMeal.innerText = allItems.filter((r) => r.catCom === "Có").length;
+    if (statAfter15) statAfter15.innerText = allItems.filter((r) => r.sau15h === "Có").length;
+    if (statApproved) statApproved.innerText = allItems.filter((r) => r.trangThai === "DaDuyet").length;
+
+    // Cập nhật dropdown Lọc Tổ
+    const selectTeam = document.getElementById("lrFilterTeam");
+    if (selectTeam && selectTeam.options.length <= 1) {
+      const teams = Array.from(new Set(allItems.map((r) => r.toNhom).filter(Boolean)));
+      teams.sort();
+      teams.forEach((t) => {
+        const opt = document.createElement("option");
+        opt.value = t;
+        opt.innerText = t;
+        selectTeam.appendChild(opt);
+      });
+    }
+
+    this.filterPlanningView();
+  },
+
+  filterPlanningView: function () {
+    const tbody = document.getElementById("tablePlanningLrBody");
+    if (!tbody) return;
+
+    const all = this.state.allLeaveRequests || [];
+    const teamFilter = document.getElementById("lrFilterTeam")?.value || "ALL";
+    const mealFilter = document.getElementById("lrFilterMeal")?.value || "ALL";
+    const query = (document.getElementById("lrFilterSearch")?.value || "").toLowerCase().trim();
+
+    let filtered = all.filter((r) => {
+      if (teamFilter !== "ALL" && r.toNhom !== teamFilter) return false;
+      if (mealFilter === "YES" && r.catCom !== "Có") return false;
+      if (mealFilter === "AFTER15" && r.sau15h !== "Có") return false;
+      if (query) {
+        const match =
+          String(r.hoTen || "").toLowerCase().includes(query) ||
+          String(r.maNhanVien || "").toLowerCase().includes(query) ||
+          String(r.maDon || "").toLowerCase().includes(query) ||
+          String(r.toNhom || "").toLowerCase().includes(query);
+        if (!match) return false;
+      }
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 22px; color: #64748b;">Không có đơn nghỉ phép nào phù hợp với bộ lọc.</td></tr>`;
+      return;
+    }
+
+    let html = "";
+    filtered.forEach((item) => {
+      const isMeal = item.catCom === "Có";
+      const mealBadge = isMeal
+        ? `<span class="lr-badge lr-badge-meal-yes">🍱 CẮT CƠM</span>`
+        : `<span class="lr-badge lr-badge-meal-no">Ăn cơm bình thường</span>`;
+
+      const timeWarning =
+        item.sau15h === "Có"
+          ? `<span style="display:inline-block; background:#fee2e2; color:#dc2626; padding:1px 6px; border-radius:4px; font-weight:700; font-size:11px;">⚠️ Sau 15h (${item.gioGuiDon})</span>`
+          : `<span style="color:#64748b; font-size:12px;">${item.gioGuiDon || "-"}</span>`;
+
+      html += `
+        <tr>
+          <td><strong style="color: #2563eb;">${this.escapeHtml(item.maDon)}</strong></td>
+          <td>
+            <strong>${this.escapeHtml(item.hoTen)}</strong><br>
+            <span style="font-size: 0.78rem; color: #64748b;">Mã: ${this.escapeHtml(item.maNhanVien)}</span>
+          </td>
+          <td><strong style="color: #475569;">${this.escapeHtml(item.toNhom)}</strong></td>
+          <td>${this.escapeHtml(item.caLamViec)}</td>
+          <td>
+            <div style="font-size: 0.82rem;">${this.escapeHtml(item.ngayBatDau)}</div>
+            <div style="font-size: 0.82rem; color: #64748b;">${this.escapeHtml(item.ngayKetThuc)}</div>
+          </td>
+          <td><strong style="color: #15803d;">${item.soNgayNghi} ngày</strong></td>
+          <td>${mealBadge}</td>
+          <td>${timeWarning}</td>
+          <td>${this.formatLeaveStatusBadge(item.trangThai, item)}</td>
+          <td style="text-align: right;">
+            <button type="button" class="btn-action" onclick="App.printLeaveRequest(${item.id})">📄 Xem đơn</button>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  },
+
+  handleTeamLeaderApprove: async function (id) {
+    const note = prompt("Nhập ý kiến / ghi chú của Tổ trưởng duyệt (để trống nếu duyệt nhanh):", "Đồng ý chuyển Trưởng bộ phận");
+    if (note === null) return;
+
+    try {
+      const res = await this.callApi("approve_leave_team_leader", { id, ghiChuTo: note });
+      if (res && res.success) {
+        this.showToast(res.message || "Tổ trưởng đã duyệt đơn thành công!", "success");
+        this.loadLeaveRequests();
+      } else {
+        this.updateLocalLeaveStatus(id, "ChoTruongBP", "Tổ trưởng", note);
+      }
+    } catch (e) {
+      this.updateLocalLeaveStatus(id, "ChoTruongBP", "Tổ trưởng", note);
+    }
+  },
+
+  handleTeamLeaderReject: async function (id) {
+    const reason = prompt("Vui lòng nhập lý do Tổ trưởng từ chối đơn nghỉ phép:", "Không đủ nhân sự thay thế ca làm việc");
+    if (!reason) return;
+
+    try {
+      const res = await this.callApi("reject_leave_team_leader", { id, lyDo: reason });
+      if (res && res.success) {
+        this.showToast(res.message || "Đã từ chối đơn nghỉ phép!", "success");
+        this.loadLeaveRequests();
+      } else {
+        this.updateLocalLeaveStatus(id, "TuChoi", "Tổ trưởng", reason);
+      }
+    } catch (e) {
+      this.updateLocalLeaveStatus(id, "TuChoi", "Tổ trưởng", reason);
+    }
+  },
+
+  handleDeptHeadApprove: async function (id) {
+    const note = prompt("Nhập ý kiến / ghi chú của Trưởng bộ phận phê duyệt:", "Đồng ý phê duyệt hoàn tất");
+    if (note === null) return;
+
+    try {
+      const res = await this.callApi("approve_leave_dept_head", { id, ghiChuBP: note });
+      if (res && res.success) {
+        this.showToast(res.message || "Trưởng bộ phận đã phê duyệt hoàn tất đơn!", "success");
+        this.loadLeaveRequests();
+      } else {
+        this.updateLocalLeaveStatus(id, "DaDuyet", "Trưởng bộ phận", note);
+      }
+    } catch (e) {
+      this.updateLocalLeaveStatus(id, "DaDuyet", "Trưởng bộ phận", note);
+    }
+  },
+
+  handleDeptHeadReject: async function (id) {
+    const reason = prompt("Vui lòng nhập lý do Trưởng bộ phận từ chối:", "Kế hoạch sản xuất đột xuất cần nhân lực");
+    if (!reason) return;
+
+    try {
+      const res = await this.callApi("reject_leave_dept_head", { id, lyDo: reason });
+      if (res && res.success) {
+        this.showToast(res.message || "Trưởng bộ phận đã từ chối đơn!", "success");
+        this.loadLeaveRequests();
+      } else {
+        this.updateLocalLeaveStatus(id, "TuChoi", "Trưởng bộ phận", reason);
+      }
+    } catch (e) {
+      this.updateLocalLeaveStatus(id, "TuChoi", "Trưởng bộ phận", reason);
+    }
+  },
+
+  updateLocalLeaveStatus: function (id, newStatus, roleName, note) {
+    try {
+      const storageKey = "PORTAL_LOCAL_LEAVE_REQUESTS";
+      const raw = localStorage.getItem(storageKey);
+      const list = raw ? JSON.parse(raw) : [];
+      const idx = list.findIndex((r) => Number(r.id) === Number(id));
+
+      if (idx !== -1) {
+        list[idx].trangThai = newStatus;
+        const now = new Date();
+        const timeStr = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+        const uName = `${this.state.currentUser?.hoTen || roleName} (${this.state.currentUser?.maNhanVien || ""})`;
+
+        if (roleName.includes("Tổ trưởng")) {
+          list[idx].nguoiDuyetTo = uName;
+          list[idx].thoiGianDuyetTo = timeStr;
+          list[idx].ghiChuTo = note || "Đã duyệt";
+        } else {
+          list[idx].nguoiDuyetBP = uName;
+          list[idx].thoiGianDuyetBP = timeStr;
+          list[idx].ghiChuBP = note || "Đã duyệt";
+        }
+
+        localStorage.setItem(storageKey, JSON.stringify(list));
+        this.showToast(`Đã cập nhật trạng thái đơn ${list[idx].maDon} (${newStatus})!`, "success");
+        this.loadLeaveRequests();
+      }
+    } catch (e) {
+      this.showToast("Không thể cập nhật trạng thái!", "error");
+    }
+  },
+
+  printLeaveRequest: function (id) {
+    const all = [...(this.state.allLeaveRequests || []), ...(this.state.myLeaveRequests || [])];
+    const item = all.find((r) => Number(r.id) === Number(id));
+    if (!item) {
+      this.showToast("Không tìm thấy thông tin đơn nghỉ phép để in!", "error");
+      return;
+    }
+
+    const printWin = window.open("", "_blank", "width=860,height=880");
+    if (!printWin) {
+      this.showToast("Trình duyệt đang chặn cửa sổ bật lên. Vui lòng cho phép Popup để in phiếu!", "warning");
+      return;
+    }
+
+    const htmlContent = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Đơn xin nghỉ phép - ${this.escapeHtml(item.maDon)}</title>
+  <style>
+    body { font-family: "Times New Roman", Times, serif; font-size: 15px; line-height: 1.5; color: #000; padding: 25px; margin: 0; background: #fff; }
+    .print-container { max-width: 800px; margin: 0 auto; }
+    .company-title { font-size: 14px; font-weight: bold; text-transform: uppercase; }
+    .header-table { width: 100%; margin-bottom: 20px; border-bottom: 1.5px solid #000; padding-bottom: 10px; }
+    .main-title { text-align: center; font-size: 22px; font-weight: bold; margin: 15px 0 5px; text-transform: uppercase; }
+    .sub-code { text-align: center; font-style: italic; font-size: 13.5px; margin-bottom: 20px; color: #333; }
+    .data-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    .data-table th, .data-table td { border: 1px solid #000; padding: 9px 12px; font-size: 14.5px; }
+    .data-table th { background-color: #f2f2f2; text-align: left; width: 28%; font-weight: bold; }
+    .sign-grid { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; margin-top: 30px; }
+    .sign-box { padding: 5px; }
+    .sign-box h4 { margin: 0; font-size: 14px; text-transform: uppercase; }
+    .sign-box p { margin: 4px 0 35px; font-style: italic; font-size: 12.5px; color: #444; }
+    .sign-stamp { display: inline-block; border: 2px solid #15803d; color: #15803d; font-weight: bold; padding: 4px 10px; border-radius: 4px; font-size: 13px; text-transform: uppercase; }
+    .print-toolbar { position: fixed; top: 12px; right: 12px; background: #fff; border: 1px solid #ccc; padding: 8px 14px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .btn-print { background: #2563eb; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    @media print { .print-toolbar { display: none !important; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="print-toolbar">
+    <button class="btn-print" onclick="window.print()">🖨️ IN ĐƠN NGAY</button>
+  </div>
+  <div class="print-container">
+    <table class="header-table">
+      <tr>
+        <td style="width: 55%;">
+          <div class="company-title">CN CÔNG TY CỔ PHẦN LONG KHẢI TẠI ĐÀ NẴNG</div>
+          <div style="font-size: 13px;">Lô B1-1, KCN Hòa Khánh, Q. Liên Chiểu, TP. Đà Nẵng</div>
+        </td>
+        <td style="width: 45%; text-align: right; font-size: 13px;">
+          <div><strong>Mã đơn:</strong> ${this.escapeHtml(item.maDon)}</div>
+          <div><strong>Ngày tạo:</strong> ${this.escapeHtml(item.ngayTao)}</div>
+        </td>
+      </tr>
+    </table>
+
+    <div class="main-title">ĐƠN XIN NGHỈ PHÉP</div>
+    <div class="sub-code">(Căn cứ Bộ Luật Lao Động &amp; Nội quy lao động Công ty Long Khai)</div>
+
+    <table class="data-table">
+      <tr>
+        <th>Họ và tên nhân viên</th>
+        <td><strong>${this.escapeHtml(item.hoTen)}</strong></td>
+        <th style="width: 18%;">Mã nhân viên</th>
+        <td><strong>${this.escapeHtml(item.maNhanVien)}</strong></td>
+      </tr>
+      <tr>
+        <th>Bộ phận / Phòng ban</th>
+        <td>${this.escapeHtml(item.phongBan)}</td>
+        <th>Tổ / Nhóm</th>
+        <td><strong>${this.escapeHtml(item.toNhom)}</strong></td>
+      </tr>
+      <tr>
+        <th>Số điện thoại liên hệ</th>
+        <td>${this.escapeHtml(item.soDienThoai)}</td>
+        <th>Ca làm việc</th>
+        <td>${this.escapeHtml(item.caLamViec)}</td>
+      </tr>
+      <tr>
+        <th>Loại nghỉ phép</th>
+        <td colspan="3"><strong style="color:#0369a1;">${this.escapeHtml(item.loaiNghiPhep)}</strong></td>
+      </tr>
+      <tr>
+        <th>Thời gian nghỉ</th>
+        <td colspan="3">
+          Từ: <strong>${this.escapeHtml(item.ngayBatDau)}</strong> đến: <strong>${this.escapeHtml(item.ngayKetThuc)}</strong>
+          (Tổng cộng: <strong style="color:#15803d;">${item.soNgayNghi} ngày</strong>)
+        </td>
+      </tr>
+      <tr>
+        <th>Người nhận bàn giao</th>
+        <td colspan="3"><strong>${this.escapeHtml(item.nguoiBanGiao || "Không có")}</strong></td>
+      </tr>
+      <tr>
+        <th>Lý do nghỉ phép</th>
+        <td colspan="3">${this.escapeHtml(item.lyDo)}</td>
+      </tr>
+      <tr>
+        <th>Đăng ký cắt cơm</th>
+        <td colspan="3">
+          <strong>${this.escapeHtml(item.catCom)}</strong> ${item.sau15h === "Có" ? "(Lưu ý: Nộp đơn sau 15h, cần báo thêm Nhân viên kinh tế)" : ""}
+        </td>
+      </tr>
+    </table>
+
+    <div class="sign-grid">
+      <div class="sign-box">
+        <h4>NGƯỜI LÀM ĐƠN</h4>
+        <p>(Ký và ghi rõ họ tên)</p>
+        <div style="font-weight: bold; margin-top: 15px;">${this.escapeHtml(item.hoTen)}</div>
+      </div>
+
+      <div class="sign-box">
+        <h4>TỔ TRƯỞNG XÁC NHẬN</h4>
+        <p>(Ý kiến &amp; Chuyển BP)</p>
+        ${
+          item.nguoiDuyetTo
+            ? `<div class="sign-stamp">✔ ĐÃ DUYỆT</div><br><strong>${this.escapeHtml(item.nguoiDuyetTo)}</strong>`
+            : item.khongCoToTruong === "Có"
+            ? `<div style="font-size:12px; color:#b45309; margin-top:15px;">Tổ không có Tổ trưởng</div>`
+            : `<div style="margin-top:20px;">...........................</div>`
+        }
+      </div>
+
+      <div class="sign-box">
+        <h4>TRƯỞNG BỘ PHẬN</h4>
+        <p>(Phê duyệt hoàn tất)</p>
+        ${
+          item.nguoiDuyetBP
+            ? `<div class="sign-stamp">✔ ĐÃ PHÊ DUYỆT</div><br><strong>${this.escapeHtml(item.nguoiDuyetBP)}</strong>`
+            : `<div style="margin-top:20px;">...........................</div>`
+        }
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    printWin.document.open();
+    printWin.document.write(htmlContent);
+    printWin.document.close();
+  },
+
+  printCutMealList: function () {
+    const all = this.state.allLeaveRequests || [];
+    const teamFilter = document.getElementById("lrFilterTeam")?.value || "ALL";
+    const cutMeals = all.filter((r) => r.catCom === "Có" && (teamFilter === "ALL" || r.toNhom === teamFilter));
+
+    if (cutMeals.length === 0) {
+      this.showToast("Không có đơn đăng ký cắt cơm nào để in danh sách!", "warning");
+      return;
+    }
+
+    const printWin = window.open("", "_blank", "width=880,height=880");
+    if (!printWin) {
+      this.showToast("Trình duyệt đang chặn Popup. Vui lòng cho phép Popup để in danh sách!", "warning");
+      return;
+    }
+
+    const todayStr = new Date().toLocaleDateString("vi-VN");
+
+    let rowsHtml = "";
+    cutMeals.forEach((item, idx) => {
+      rowsHtml += `
+        <tr>
+          <td style="text-align: center;">${idx + 1}</td>
+          <td><strong>${this.escapeHtml(item.maDon)}</strong></td>
+          <td><strong>${this.escapeHtml(item.hoTen)}</strong></td>
+          <td>${this.escapeHtml(item.maNhanVien)}</td>
+          <td>${this.escapeHtml(item.toNhom)}</td>
+          <td>${this.escapeHtml(item.caLamViec)}</td>
+          <td>Từ ${this.escapeHtml(item.ngayBatDau)}<br>đến ${this.escapeHtml(item.ngayKetThuc)}</td>
+          <td style="text-align: center;"><strong>${item.soNgayNghi}</strong></td>
+          <td style="text-align: center; color: ${item.sau15h === "Có" ? "#dc2626" : "#166534"}; font-weight: bold;">
+            ${item.sau15h === "Có" ? "⚠️ Sau 15h" : "Đúng hạn"} (${this.escapeHtml(item.gioGuiDon)})
+          </td>
+        </tr>
+      `;
+    });
+
+    const htmlContent = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Danh sách cắt cơm ca - Nhà máy Long Khai</title>
+  <style>
+    body { font-family: "Times New Roman", Times, serif; font-size: 14.5px; line-height: 1.4; color: #000; padding: 25px; margin: 0; background: #fff; }
+    .print-container { max-width: 900px; margin: 0 auto; }
+    .company-title { font-size: 13.5px; font-weight: bold; text-transform: uppercase; }
+    .header-table { width: 100%; margin-bottom: 16px; border-bottom: 1.5px solid #000; padding-bottom: 8px; }
+    .main-title { text-align: center; font-size: 20px; font-weight: bold; margin: 10px 0 4px; text-transform: uppercase; }
+    .sub-code { text-align: center; font-style: italic; font-size: 13px; margin-bottom: 16px; color: #333; }
+    .data-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    .data-table th, .data-table td { border: 1px solid #000; padding: 7px 9px; font-size: 13.5px; }
+    .data-table th { background-color: #f2f2f2; text-align: center; font-weight: bold; }
+    .sign-grid { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; margin-top: 25px; }
+    .sign-box h4 { margin: 0; font-size: 13.5px; text-transform: uppercase; }
+    .sign-box p { margin: 4px 0 30px; font-style: italic; font-size: 12px; }
+    .print-toolbar { position: fixed; top: 12px; right: 12px; background: #fff; border: 1px solid #ccc; padding: 8px 14px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .btn-print { background: #16a34a; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    @media print { .print-toolbar { display: none !important; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="print-toolbar">
+    <button class="btn-print" onclick="window.print()">🖨️ IN DANH SÁCH BẾP</button>
+  </div>
+  <div class="print-container">
+    <table class="header-table">
+      <tr>
+        <td>
+          <div class="company-title">CN CÔNG TY CỔ PHẦN LONG KHẢI TẠI ĐÀ NẴNG</div>
+          <div style="font-size: 12.5px;">Bộ phận Kế hoạch / Kinh tế sản xuất</div>
+        </td>
+        <td style="text-align: right; font-size: 13px;">
+          <div><strong>Ngày in:</strong> ${todayStr}</div>
+          <div><strong>Bộ phận lọc:</strong> ${this.escapeHtml(teamFilter === "ALL" ? "Tất cả các Tổ" : teamFilter)}</div>
+        </td>
+      </tr>
+    </table>
+
+    <div class="main-title">DANH SÁCH NHÂN VIÊN NGHỈ PHÉP BÁO CẮT CƠM CA</div>
+    <div class="sub-code">(Kính gửi: Bộ phận Bếp ăn / Căn tin để điều chỉnh suất cơm)</div>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 35px;">STT</th>
+          <th>Mã đơn</th>
+          <th>Họ và tên</th>
+          <th>Mã NV</th>
+          <th>Tổ / Nhóm</th>
+          <th>Ca làm việc</th>
+          <th>Thời gian nghỉ</th>
+          <th>Số ngày</th>
+          <th>Giờ nộp đơn</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+
+    <div style="margin-top: 10px; font-size: 13.5px;">
+      <strong>Tổng số suất cơm giảm trừ:</strong> ${cutMeals.length} suất.
+    </div>
+
+    <div class="sign-grid">
+      <div class="sign-box">
+        <h4>NGƯỜI LẬP DANH SÁCH</h4>
+        <p>(Kế hoạch / Kinh tế)</p>
+        <div style="font-weight: bold; margin-top: 15px;">${this.escapeHtml(this.state.currentUser?.hoTen || "")}</div>
+      </div>
+
+      <div class="sign-box">
+        <h4>TRƯỞNG BỘ PHẬN</h4>
+        <p>(Xác nhận)</p>
+        <div style="margin-top: 20px;">...........................</div>
+      </div>
+
+      <div class="sign-box">
+        <h4>ĐẠI DIỆN BẾP ĂN</h4>
+        <p>(Đã nhận báo cơm)</p>
+        <div style="margin-top: 20px;">...........................</div>
       </div>
     </div>
   </div>

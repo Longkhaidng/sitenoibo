@@ -109,6 +109,11 @@
           <span>Xác nhận công</span>
           <span id="sidebarWcBadge" class="nav-badge" style="display: none;">0</span>
         </div>
+        <div class="nav-item" data-view="leaveRequest">
+          <span class="nav-icon">📝</span>
+          <span>Đơn xin nghỉ phép</span>
+          <span id="sidebarLrBadge" class="nav-badge" style="display: none;">0</span>
+        </div>
         <div class="nav-item" data-view="pccc" title="Mở ứng dụng Quản lý & Kiểm tra PCCC (HSE Pro)">
           <span class="nav-icon">🧯</span>
           <span>Kiểm tra PCCC</span>
@@ -499,6 +504,415 @@
                   </thead>
                   <tbody id="tableItWcBody">
                     <tr><td colspan="9" style="text-align: center; padding: 20px;">Đang tải danh sách...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================================================================
+             VIEW 1C: ĐƠN XIN NGHỈ PHÉP & QUẢN LÝ CẮT CƠM
+             (NGƯỜI LAO ĐỘNG -> TỔ TRƯỞNG -> TRƯỞNG BỘ PHẬN -> NV KẾ HOẠCH BÁO CƠM)
+             =================================================================== -->
+        <section id="viewLeaveRequest" class="view-section">
+          <!-- Thanh quy trình luân chuyển đơn nghỉ phép -->
+          <div class="lr-workflow-banner">
+            <div class="lr-workflow-steps">
+              <span class="lr-step-pill">1️⃣ Gửi đơn nghỉ phép</span>
+              <span class="lr-step-arrow">➔</span>
+              <span class="lr-step-pill" id="lrWfStep2">2️⃣ Tổ trưởng duyệt</span>
+              <span class="lr-step-arrow">➔</span>
+              <span class="lr-step-pill">3️⃣ Trưởng bộ phận duyệt (Email / Web)</span>
+              <span class="lr-step-arrow">➔</span>
+              <span class="lr-step-pill">4️⃣ Hoàn tất &amp; Báo cắt cơm</span>
+            </div>
+            <button type="button" class="btn-action" onclick="App.loadLeaveRequests()">🔄 Làm mới danh sách</button>
+          </div>
+
+          <!-- Sub-tabs chuyển đổi giữa các vai trò -->
+          <div class="admin-nav-tabs" id="lrSubTabs" style="margin-bottom: 22px;">
+            <button type="button" class="admin-tab-btn active" data-lr-tab="lrTabForm" onclick="App.switchLrTab('lrTabForm')">
+              <span>📝 Nộp đơn &amp; Đơn của tôi</span>
+            </button>
+            <button type="button" class="admin-tab-btn" id="btnLrTabTeamLeader" data-lr-tab="lrTabTeamLeader" style="display: none;" onclick="App.switchLrTab('lrTabTeamLeader')">
+              <span>👥 Tổ trưởng duyệt</span>
+              <span id="badgeLrTeamLeader" class="chip-count" style="background: #fef3c7; color: #b45309;">0</span>
+            </button>
+            <button type="button" class="admin-tab-btn" id="btnLrTabDeptHead" data-lr-tab="lrTabDeptHead" style="display: none;" onclick="App.switchLrTab('lrTabDeptHead')">
+              <span>📋 Trưởng bộ phận duyệt</span>
+              <span id="badgeLrDeptHead" class="chip-count" style="background: #e0f2fe; color: #0369a1;">0</span>
+            </button>
+            <button type="button" class="admin-tab-btn" id="btnLrTabPlanning" data-lr-tab="lrTabPlanning" style="display: none;" onclick="App.switchLrTab('lrTabPlanning')">
+              <span>🍱 Nhân Viên Kế Hoạch (Cắt cơm)</span>
+              <span id="badgeLrPlanning" class="chip-count" style="background: #ffedd5; color: #c2410c;">0</span>
+            </button>
+          </div>
+
+          <!-- TAB 1: FORM NỘP ĐƠN NGHỈ PHÉP & LỊCH SỬ CỦA TÔI -->
+          <div id="lrTabForm" class="lr-tab-panel">
+            <div class="lr-paper-card">
+              <div class="lr-header">
+                <div class="lr-company-sub">CN CÔNG TY CỔ PHẦN LONG KHẢI TẠI ĐÀ NẴNG</div>
+                <h2 class="lr-main-title">ĐƠN XIN NGHỈ PHÉP</h2>
+                <div class="lr-subtitle-pill">(Quy định xin nghỉ phép &amp; quản lý suất ăn công nhân viên)</div>
+              </div>
+
+              <form id="formLeaveRequest">
+                <!-- Hàng 1: Mã số - Họ & tên - Bộ phận -->
+                <div class="lr-row-3">
+                  <div>
+                    <label class="lr-field-label" for="lrMaNhanVien">Mã số nhân viên</label>
+                    <input type="text" id="lrMaNhanVien" class="lr-input-readonly" readonly>
+                  </div>
+                  <div>
+                    <label class="lr-field-label" for="lrHoTen">Họ &amp; tên</label>
+                    <input type="text" id="lrHoTen" class="lr-input-readonly" readonly>
+                  </div>
+                  <div>
+                    <label class="lr-field-label" for="lrPhongBan">Bộ phận</label>
+                    <input type="text" id="lrPhongBan" class="lr-input-readonly" readonly>
+                  </div>
+                </div>
+
+                <!-- Hàng 2: Chọn Tổ & Số điện thoại -->
+                <div class="lr-row-2">
+                  <div>
+                    <label class="lr-field-label" for="lrToNhom">Tổ / Nhóm làm việc <span class="req">*</span></label>
+                    <select id="lrToNhom" class="lr-input" required onchange="App.handleTeamSelectChange(this.value)">
+                      <option value="">-- Chọn Tổ trực thuộc --</option>
+                      <option value="Tổ 1">Tổ 1</option>
+                      <option value="Tổ 2">Tổ 2</option>
+                      <option value="Tổ 3">Tổ 3</option>
+                      <option value="Tổ 4">Tổ 4</option>
+                      <option value="Tổ Cắt">Tổ Cắt</option>
+                      <option value="Tổ May 1">Tổ May 1</option>
+                      <option value="Tổ May 2">Tổ May 2</option>
+                      <option value="Tổ Hoàn thành">Tổ Hoàn thành</option>
+                      <option value="Tổ Đóng gói">Tổ Đóng gói</option>
+                      <option value="Tổ Kho">Tổ Kho</option>
+                      <option value="Tổ Bảo trì / Cơ điện">Tổ Bảo trì / Cơ điện</option>
+                      <option value="Tổ QA / QC">Tổ QA / QC</option>
+                      <option value="Tổ Bếp / Căn tin">Tổ Bếp / Căn tin</option>
+                      <option value="Tổ Văn phòng / HCNS">Tổ Văn phòng / HCNS</option>
+                      <option value="Khác">Tổ khác (nhập bổ sung vào lý do)</option>
+                    </select>
+                    <div style="margin-top: 8px;">
+                      <label style="display: inline-flex; align-items: center; gap: 7px; font-size: 0.82rem; color: #475569; cursor: pointer;">
+                        <input type="checkbox" id="lrKhongCoToTruong" onchange="App.handleNoTeamLeaderToggle(this.checked)">
+                        <span>⚡ <strong>Tổ không có Tổ trưởng</strong> (Đơn sẽ bỏ qua bước này và gửi thẳng Trưởng bộ phận)</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="lr-field-label" for="lrSoDienThoai">Số điện thoại liên hệ khi nghỉ <span class="req">*</span></label>
+                    <input type="tel" id="lrSoDienThoai" class="lr-input" placeholder="Ví dụ: 0905123456" required>
+                    <span class="lr-helper-note">Để công ty kịp thời liên hệ khi có công việc khẩn cấp.</span>
+                  </div>
+                </div>
+
+                <!-- Khung 3: Loại nghỉ phép (6 loại nghỉ phép chuẩn quy định) -->
+                <div class="lr-section-box">
+                  <div class="lr-section-title">
+                    <span>📋</span> Chọn loại nghỉ phép <span class="req" style="color: #ef4444;">*</span>
+                  </div>
+                  <div class="lr-types-grid">
+                    <label class="lr-type-card">
+                      <input type="radio" name="lrLoaiNghi" value="Phép năm" checked>
+                      <div>
+                        <span class="lr-type-title">🌴 Phép năm</span>
+                        <span class="lr-type-desc">Hưởng nguyên lương theo chế độ năm</span>
+                      </div>
+                    </label>
+                    <label class="lr-type-card">
+                      <input type="radio" name="lrLoaiNghi" value="Việc riêng (có hưởng lương)">
+                      <div>
+                        <span class="lr-type-title">💼 Việc riêng (có hưởng lương)</span>
+                        <span class="lr-type-desc">Theo luật LĐ (kết hôn, tang chế...)</span>
+                      </div>
+                    </label>
+                    <label class="lr-type-card">
+                      <input type="radio" name="lrLoaiNghi" value="Việc riêng (không hưởng lương)">
+                      <div>
+                        <span class="lr-type-title">🏠 Việc riêng (không hưởng lương)</span>
+                        <span class="lr-type-desc">Theo thỏa thuận xin nghỉ không lương</span>
+                      </div>
+                    </label>
+                    <label class="lr-type-card">
+                      <input type="radio" name="lrLoaiNghi" value="Nghỉ ốm / BHXH">
+                      <div>
+                        <span class="lr-type-title">🏥 Nghỉ ốm / BHXH</span>
+                        <span class="lr-type-desc">Có giấy chỉ định khám bệnh / viện</span>
+                      </div>
+                    </label>
+                    <label class="lr-type-card">
+                      <input type="radio" name="lrLoaiNghi" value="Thai sản (bao gồm chế độ nam nghỉ vợ sinh)">
+                      <div>
+                        <span class="lr-type-title">👶 Thai sản &amp; Vợ sinh</span>
+                        <span class="lr-type-desc">Nghỉ sinh con hoặc nam nghỉ vợ sinh</span>
+                      </div>
+                    </label>
+                    <label class="lr-type-card">
+                      <input type="radio" name="lrLoaiNghi" value="Nghỉ bù">
+                      <div>
+                        <span class="lr-type-title">⏱️ Nghỉ bù</span>
+                        <span class="lr-type-desc">Nghỉ bù ngày làm thêm / tăng ca</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Hàng 4: Ca làm việc & Người nhận bàn giao -->
+                <div class="lr-row-2">
+                  <div>
+                    <label class="lr-field-label" for="lrCaLamViec">Ca làm việc <span class="req">*</span></label>
+                    <select id="lrCaLamViec" class="lr-input" required>
+                      <option value="HC: 07h30 - 16h30">HC: 07h30 - 16h30</option>
+                      <option value="HC: 08h00 - 16h30">HC: 08h00 - 16h30</option>
+                      <option value="Ca 1: 06h00 - 14h00">Ca 1: 06h00 - 14h00</option>
+                      <option value="Ca 2: 14h00 - 22h00">Ca 2: 14h00 - 22h00</option>
+                      <option value="Ca 3: 22h00 - 06h00">Ca 3: 22h00 - 06h00</option>
+                      <option value="Cả ngày / Nhiều ca">Cả ngày / Nhiều ca</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="lr-field-label" for="lrNguoiBanGiao">Người nhận bàn giao công việc <span class="req">*</span></label>
+                    <input type="text" id="lrNguoiBanGiao" class="lr-input" placeholder="Họ tên người nhận bàn giao trong ca" required>
+                  </div>
+                </div>
+
+                <!-- Khung 5: Thời gian nghỉ (Hệ thống tự động tính Tổng số ngày nghỉ) -->
+                <div class="lr-section-box">
+                  <div class="lr-section-title">
+                    <span>⏱️</span> Thời gian nghỉ &amp; Tự động tính số ngày <span class="req" style="color: #ef4444;">*</span>
+                  </div>
+                  <div class="lr-row-2">
+                    <div>
+                      <label class="lr-field-label" for="lrNgayBatDau">Ngày giờ bắt đầu nghỉ <span class="req">*</span></label>
+                      <input type="datetime-local" id="lrNgayBatDau" class="lr-input" required onchange="App.autoCalculateLeaveDays()">
+                    </div>
+                    <div>
+                      <label class="lr-field-label" for="lrNgayKetThuc">Ngày giờ kết thúc nghỉ <span class="req">*</span></label>
+                      <input type="datetime-local" id="lrNgayKetThuc" class="lr-input" required onchange="App.autoCalculateLeaveDays()">
+                    </div>
+                  </div>
+
+                  <!-- Khung hiển thị kết quả tính toán số ngày nghỉ -->
+                  <div class="lr-days-calc-box">
+                    <span id="lrDaysBadge" class="lr-calc-badge">⚡ 1.0 ngày nghỉ</span>
+                    <span id="lrDaysCalcText" class="lr-calc-text">Hệ thống tự động tính toán tổng số ngày nghỉ theo thời gian bắt đầu và kết thúc.</span>
+                    <input type="hidden" id="lrSoNgayNghi" value="1.0">
+                  </div>
+                </div>
+
+                <!-- Khung 6: Lý do nghỉ phép chi tiết -->
+                <div style="margin-bottom: 20px;">
+                  <label class="lr-field-label" for="lrLyDo">Lý do nghỉ phép chi tiết <span class="req">*</span></label>
+                  <textarea id="lrLyDo" class="lr-input" rows="3" placeholder="Ghi rõ lý do nghỉ phép để Tổ trưởng và Trưởng bộ phận xem xét phê duyệt..." required></textarea>
+                </div>
+
+                <!-- Khung 7: Tuỳ chọn "Cắt cơm" -->
+                <div id="lrCutMealBox" class="lr-cut-meal-card">
+                  <label class="lr-cut-meal-toggle">
+                    <input type="checkbox" id="lrCatCom" onchange="App.handleCutMealToggle(this.checked)">
+                    <span>🍱 <strong>Đăng ký CẮT CƠM trong thời gian nghỉ phép</strong></span>
+                  </label>
+                  <span class="lr-helper-note" style="margin-left: 30px; margin-top: 4px;">Tích chọn nếu bạn không ăn cơm ca tại nhà máy trong thời gian nghỉ để Bếp ăn điều chỉnh suất cơm.</span>
+
+                  <!-- Cảnh báo nếu gửi sau 15h chiều -->
+                  <div id="lrCutMealWarning" class="lr-cut-meal-warning" style="display: none;">
+                    <span class="warning-icon">⚠️</span>
+                    <div>
+                      <strong>CẢNH BÁO QUAN TRỌNG VỀ CẮT CƠM (GỬI SAU 15:00):</strong>
+                      <p style="margin: 4px 0 0;">Hiện tại đã sau <strong>15h chiều</strong>, Bếp ăn nhà máy đã chốt số liệu suất ăn cho ngày mai. Bạn <strong>phải chủ động liên hệ thêm với Nhân viên kinh tế phụ trách Tổ</strong> của mình để được xác nhận cắt cơm kịp thời!</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Nút Gửi Đơn Xin Nghỉ Phép -->
+                <div class="wc-submit-row">
+                  <button type="submit" id="btnSubmitLeaveRequest" class="btn-wc-submit" style="background-color: #16a34a;">
+                    <span>📤</span>
+                    <span>Gửi Đơn Xin Nghỉ Phép</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Bảng Lịch sử Đơn xin nghỉ phép của tôi -->
+            <div class="admin-panel-card">
+              <div class="panel-toolbar">
+                <h4 style="font-size: 1.02rem; font-weight: 700;">📄 Danh sách Đơn xin nghỉ phép của bạn</h4>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Mã đơn</th>
+                      <th>Tổ</th>
+                      <th>Loại nghỉ</th>
+                      <th>Ca làm việc</th>
+                      <th>Thời gian nghỉ</th>
+                      <th>Số ngày</th>
+                      <th>Cắt cơm</th>
+                      <th>Trạng thái luồng duyệt</th>
+                      <th style="text-align: right;">Đơn in</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tableMyLrBody">
+                    <tr><td colspan="9" style="text-align: center; padding: 20px;">Chưa có đơn xin nghỉ phép nào.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: DÀNH CHO TỔ TRƯỞNG DUYỆT (TRÊN WEB APP) -->
+          <div id="lrTabTeamLeader" class="lr-tab-panel" style="display: none;">
+            <div class="admin-panel-card">
+              <div class="panel-toolbar">
+                <div>
+                  <h4 style="font-size: 1.05rem; font-weight: 700;">👥 Danh sách đơn xin nghỉ phép chờ Tổ trưởng duyệt</h4>
+                  <p style="font-size: 0.84rem; color: var(--neutral-500); margin-top: 2px;">
+                    Sau khi Tổ trưởng bấm <strong>"Duyệt &amp; Chuyển Trưởng BP"</strong>, hệ thống sẽ tự động gửi email thông báo tới Trưởng bộ phận để phê duyệt bước tiếp theo.
+                  </p>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Mã đơn</th>
+                      <th>Nhân viên</th>
+                      <th>Tổ</th>
+                      <th>Loại nghỉ</th>
+                      <th>Thời gian nghỉ</th>
+                      <th>Số ngày</th>
+                      <th>Cắt cơm</th>
+                      <th>Lý do &amp; Bàn giao</th>
+                      <th style="text-align: right;">Thao tác Tổ trưởng</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tableTeamLeaderLrBody">
+                    <tr><td colspan="9" style="text-align: center; padding: 20px;">Đang tải danh sách...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: DÀNH CHO TRƯỞNG BỘ PHẬN DUYỆT (QUA EMAIL / WEB APP) -->
+          <div id="lrTabDeptHead" class="lr-tab-panel" style="display: none;">
+            <div class="admin-panel-card">
+              <div class="panel-toolbar">
+                <div>
+                  <h4 style="font-size: 1.05rem; font-weight: 700;">📋 Danh sách đơn xin nghỉ phép chờ Trưởng bộ phận phê duyệt</h4>
+                  <p style="font-size: 0.84rem; color: var(--neutral-500); margin-top: 2px;">
+                    Trưởng bộ phận có thể bấm <strong>"Phê duyệt hoàn tất"</strong> trực tiếp tại đây hoặc bấm liên kết duyệt 1 chạm trong email thông báo.
+                  </p>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Mã đơn</th>
+                      <th>Nhân viên</th>
+                      <th>Tổ</th>
+                      <th>Loại nghỉ</th>
+                      <th>Thời gian nghỉ (Số ngày)</th>
+                      <th>Cắt cơm</th>
+                      <th>Tổ trưởng xác nhận</th>
+                      <th>Lý do nghỉ</th>
+                      <th style="text-align: right;">Phê duyệt</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tableDeptHeadLrBody">
+                    <tr><td colspan="9" style="text-align: center; padding: 20px;">Đang tải danh sách...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 4: DÀNH CHO NHÂN VIÊN KẾ HOẠCH (QUẢN LÝ CẮT CƠM) -->
+          <div id="lrTabPlanning" class="lr-tab-panel" style="display: none;">
+            <!-- Thống kê nhanh số liệu cắt cơm -->
+            <div class="lr-planning-stats-grid">
+              <div class="lr-stat-card">
+                <div class="lr-stat-icon" style="background: #eff6ff; color: #2563eb;">📄</div>
+                <div>
+                  <div class="lr-stat-val" id="statLrTotalRequests">0</div>
+                  <div class="lr-stat-label">Tổng đơn của Tổ</div>
+                </div>
+              </div>
+              <div class="lr-stat-card">
+                <div class="lr-stat-icon" style="background: #fff7ed; color: #ea580c;">🍱</div>
+                <div>
+                  <div class="lr-stat-val" id="statLrCutMealCount" style="color: #ea580c;">0</div>
+                  <div class="lr-stat-label">Suất cắt cơm</div>
+                </div>
+              </div>
+              <div class="lr-stat-card">
+                <div class="lr-stat-icon" style="background: #fef2f2; color: #dc2626;">⏰</div>
+                <div>
+                  <div class="lr-stat-val" id="statLrAfter15hCount" style="color: #dc2626;">0</div>
+                  <div class="lr-stat-label">Nộp sau 15h</div>
+                </div>
+              </div>
+              <div class="lr-stat-card">
+                <div class="lr-stat-icon" style="background: #f0fdf4; color: #16a34a;">✅</div>
+                <div>
+                  <div class="lr-stat-val" id="statLrApprovedCount" style="color: #16a34a;">0</div>
+                  <div class="lr-stat-label">Đã duyệt hoàn tất</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Khung Lọc & Báo cáo cắt cơm -->
+            <div class="admin-panel-card">
+              <div class="lr-filter-bar">
+                <div class="lr-filter-group">
+                  <label style="font-size: 0.85rem; font-weight: 700; color: #475569;">Lọc theo Tổ:</label>
+                  <select id="lrFilterTeam" class="lr-input" style="width: auto; padding: 6px 12px;" onchange="App.filterPlanningView()">
+                    <option value="ALL">Tất cả các Tổ</option>
+                  </select>
+
+                  <label style="font-size: 0.85rem; font-weight: 700; color: #475569; margin-left: 8px;">Cắt cơm:</label>
+                  <select id="lrFilterMeal" class="lr-input" style="width: auto; padding: 6px 12px;" onchange="App.filterPlanningView()">
+                    <option value="ALL">Tất cả đơn</option>
+                    <option value="YES">🍱 Chỉ đơn có Cắt cơm</option>
+                    <option value="AFTER15">⚠️ Cắt cơm sau 15h</option>
+                  </select>
+
+                  <label style="font-size: 0.85rem; font-weight: 700; color: #475569; margin-left: 8px;">Từ khóa:</label>
+                  <input type="text" id="lrFilterSearch" class="lr-input" style="width: 170px; padding: 6px 12px;" placeholder="Tên, mã NV..." oninput="App.filterPlanningView()">
+                </div>
+                <div>
+                  <button type="button" class="btn-action" style="background: #16a34a; color: #ffffff;" onclick="App.printCutMealList()">
+                    <span>🖨️ In danh sách cắt cơm cho Bếp</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Mã đơn</th>
+                      <th>Nhân viên</th>
+                      <th>Tổ</th>
+                      <th>Ca làm việc</th>
+                      <th>Thời gian nghỉ</th>
+                      <th>Số ngày</th>
+                      <th>Cắt cơm</th>
+                      <th>Giờ nộp đơn</th>
+                      <th>Trạng thái duyệt</th>
+                      <th style="text-align: right;">Chi tiết</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tablePlanningLrBody">
+                    <tr><td colspan="10" style="text-align: center; padding: 20px;">Đang tải danh sách...</td></tr>
                   </tbody>
                 </table>
               </div>
