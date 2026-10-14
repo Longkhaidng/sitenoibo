@@ -222,7 +222,7 @@ const App = {
                 url: "pccc/index.html",
                 thuTu: 1,
                 trangThai: "Active",
-                quyenTruyCap: "All"
+                quyenTruyCap: "PCCC, EHS, All"
               },
               {
                 id: "thucpham-app-card",
@@ -233,7 +233,7 @@ const App = {
                 url: "thucpham/index.html",
                 thuTu: 2,
                 trangThai: "Active",
-                quyenTruyCap: "All"
+                quyenTruyCap: "Bếp / Căn tin, EHS, All"
               },
               {
                 id: 3,
@@ -255,7 +255,7 @@ const App = {
                 url: "https://example.com/security-cctv",
                 thuTu: 4,
                 trangThai: "Active",
-                quyenTruyCap: "All"
+                quyenTruyCap: "An ninh, IT, Ban Giám Đốc"
               },
               {
                 id: 5,
@@ -277,7 +277,7 @@ const App = {
                 url: "https://example.com/ehs-safety",
                 thuTu: 6,
                 trangThai: "Active",
-                quyenTruyCap: "All"
+                quyenTruyCap: "EHS"
               },
               {
                 id: 7,
@@ -288,7 +288,7 @@ const App = {
                 url: "https://example.com/warehouse",
                 thuTu: 7,
                 trangThai: "Active",
-                quyenTruyCap: "All"
+                quyenTruyCap: "Kho, Sản xuất"
               }
             ],
             notifications: [
@@ -577,6 +577,9 @@ const App = {
     if (heroAdmin) heroAdmin.style.display = isAdmin ? "block" : "none";
     if (btnAdminAddNotif) btnAdminAddNotif.style.display = isAdmin ? "inline-flex" : "none";
 
+    // Phân quyền hiển thị các mục menu ứng dụng trên Sidebar
+    this.updateSidebarAppPermissions(user);
+
     // Cập nhật thông tin Profile View & Form Giấy Xác Nhận Công
     this.renderProfileView(user);
     this.initWorkConfirmForm();
@@ -691,7 +694,105 @@ const App = {
   /**
    * Mở ứng dụng Quản lý & Kiểm tra PCCC kèm mã SSO Token
    */
+  /**
+   * Kiểm tra quyền truy cập và hiển thị của người dùng đối với một ứng dụng
+   * @param {Object} app Đối tượng ứng dụng
+   * @param {Object} user Người dùng hiện tại
+   * @returns {Boolean}
+   */
+  hasAppAccess: function (app, user) {
+    if (!app) return false;
+    if (!user) return false;
+
+    // 1. Quản trị viên hệ thống (Admin) luôn có quyền xem và truy cập tất cả ứng dụng
+    const role = String(user.role || "").trim().toUpperCase();
+    const empId = String(user.maNhanVien || "").trim().toUpperCase();
+    if (role === "ADMIN" || empId === "2265") {
+      return true;
+    }
+
+    // 2. Ứng dụng Inactive chỉ có Admin nhìn thấy
+    if (app.trangThai && app.trangThai !== "Active") {
+      return false;
+    }
+
+    // 3. Kiểm tra cấu hình quyền truy cập (quyenTruyCap)
+    const rawPerm = String(app.quyenTruyCap || "All").trim();
+    if (!rawPerm || rawPerm.toLowerCase() === "all") {
+      return true;
+    }
+
+    // Tách danh sách nhóm người dùng được cấp phép
+    const allowedTokens = rawPerm
+      .split(",")
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (allowedTokens.includes("all")) {
+      return true;
+    }
+
+    const userDept = String(user.phongBan || "").trim().toLowerCase();
+    const userRole = String(user.role || "").trim().toLowerCase();
+
+    // 4. Khớp theo phòng ban của người dùng
+    if (userDept) {
+      const matchDept = allowedTokens.some((token) => {
+        return token === userDept || token.includes(userDept) || userDept.includes(token);
+      });
+      if (matchDept) return true;
+    }
+
+    // 5. Khớp theo vai trò của người dùng
+    if (userRole && allowedTokens.includes(userRole)) {
+      return true;
+    }
+
+    // 6. Quản lý (Manager) có quyền truy cập nếu ứng dụng không bị giới hạn riêng cho Admin
+    if (userRole === "manager" && !allowedTokens.every((t) => t === "admin")) {
+      return true;
+    }
+
+    return false;
+  },
+
+  /**
+   * Cập nhật ẩn/hiện các mục ứng dụng trên Sidebar theo phân quyền người dùng
+   */
+  updateSidebarAppPermissions: function (user) {
+    if (!user) return;
+    const pcccNav = document.querySelector('.sidebar-nav .nav-item[data-view="pccc"]');
+    const thucPhamNav = document.querySelector('.sidebar-nav .nav-item[data-view="thucpham"]');
+
+    const pcccApp = this.state.applications.find(
+      (a) => (a.danhMuc && a.danhMuc.toUpperCase() === "PCCC") || (a.url && a.url.includes("pccc"))
+    );
+    const thucPhamApp = this.state.applications.find(
+      (a) => (a.url && a.url.includes("thucpham")) || (a.tenUngDung && a.tenUngDung.toLowerCase().includes("thực phẩm"))
+    );
+
+    if (pcccNav) {
+      const canAccessPccc = pcccApp ? this.hasAppAccess(pcccApp, user) : true;
+      pcccNav.style.display = canAccessPccc ? "flex" : "none";
+    }
+
+    if (thucPhamNav) {
+      const canAccessThucPham = thucPhamApp ? this.hasAppAccess(thucPhamApp, user) : true;
+      thucPhamNav.style.display = canAccessThucPham ? "flex" : "none";
+    }
+  },
+
+  /**
+   * Mở ứng dụng Quản lý & Kiểm tra PCCC kèm mã SSO Token
+   */
   openPcccApp: function () {
+    const pcccApp = this.state.applications.find(
+      (a) => (a.danhMuc && a.danhMuc.toUpperCase() === "PCCC") || (a.url && a.url.includes("pccc"))
+    );
+    if (pcccApp && !this.hasAppAccess(pcccApp, this.state.currentUser)) {
+      this.showToast("⚠️ Bạn không có quyền truy cập ứng dụng Kiểm tra PCCC. Vui lòng liên hệ Quản trị viên!", "error");
+      return;
+    }
     const pcccUrl = this.buildSsoUrl("pccc/index.html");
     this.logAppClick("Quản lý & Kiểm tra PCCC");
     window.open(pcccUrl, "_blank", "noopener,noreferrer");
@@ -716,7 +817,8 @@ const App = {
         danhMuc: "PCCC",
         icon: "🧯",
         url: "pccc/index.html",
-        trangThai: "Active"
+        trangThai: "Active",
+        quyenTruyCap: list[pcccIdx].quyenTruyCap || "PCCC, EHS, All"
       };
     } else {
       // Nếu Google Sheet chưa có thẻ PCCC, tự động chèn lên đầu danh sách
@@ -729,7 +831,7 @@ const App = {
         url: "pccc/index.html",
         thuTu: 1,
         trangThai: "Active",
-        quyenTruyCap: "All"
+        quyenTruyCap: "PCCC, EHS, All"
       });
     }
 
@@ -761,6 +863,13 @@ const App = {
    * Mở ứng dụng Kiểm thực 3 bước & Lưu mẫu thức ăn kèm mã SSO Token
    */
   openThucPhamApp: function () {
+    const thucPhamApp = this.state.applications.find(
+      (a) => (a.url && a.url.includes("thucpham")) || (a.tenUngDung && a.tenUngDung.toLowerCase().includes("thực phẩm"))
+    );
+    if (thucPhamApp && !this.hasAppAccess(thucPhamApp, this.state.currentUser)) {
+      this.showToast("⚠️ Bạn không có quyền truy cập ứng dụng Kiểm tra thực phẩm. Vui lòng liên hệ Quản trị viên!", "error");
+      return;
+    }
     const thucPhamUrl = this.buildSsoUrl("thucpham/index.html");
     this.logAppClick("Kiểm tra thực phẩm 3 bước");
     window.open(thucPhamUrl, "_blank", "noopener,noreferrer");
@@ -785,7 +894,8 @@ const App = {
         danhMuc: list[idx].danhMuc || "EHS",
         icon: list[idx].icon || "🍱",
         url: "thucpham/index.html",
-        trangThai: "Active"
+        trangThai: "Active",
+        quyenTruyCap: list[idx].quyenTruyCap || "Bếp / Căn tin, EHS, All"
       };
     } else {
       // Chèn sau thẻ PCCC hoặc vị trí thứ 2
@@ -800,7 +910,7 @@ const App = {
         url: "thucpham/index.html",
         thuTu: 2,
         trangThai: "Active",
-        quyenTruyCap: "All"
+        quyenTruyCap: "Bếp / Căn tin, EHS, All"
       });
     }
 
@@ -834,6 +944,7 @@ const App = {
             this.renderLatestNotice(this.state.notifications);
             this.renderCategoryChips(this.state.categories, this.state.applications);
             this.filterAndRenderApps();
+            this.updateSidebarAppPermissions(this.state.currentUser);
 
             hasRenderedCache = true;
           }
@@ -879,6 +990,7 @@ const App = {
         this.renderLatestNotice(this.state.notifications);
         this.renderCategoryChips(this.state.categories, this.state.applications);
         this.filterAndRenderApps();
+        this.updateSidebarAppPermissions(this.state.currentUser);
 
         // Cập nhật số thông báo
         const notifBadge = document.getElementById("sidebarNotifBadge");
@@ -944,7 +1056,10 @@ const App = {
 
   renderCategoryChips: function (categories, applications) {
     const container = document.getElementById("categoryChipsContainer");
-    const countAll = applications.length;
+    const currentUser = this.state.currentUser;
+    // Chỉ đếm các ứng dụng mà người dùng hiện tại có quyền xem & truy cập
+    const permittedApps = (applications || []).filter((app) => this.hasAppAccess(app, currentUser));
+    const countAll = permittedApps.length;
 
     let html = `
       <button class="category-chip ${this.state.activeCategory === "ALL" ? "active" : ""}" data-category="ALL">
@@ -954,7 +1069,7 @@ const App = {
     `;
 
     categories.forEach((cat) => {
-      const count = applications.filter((a) => (a.danhMuc || "").toLowerCase() === (cat.tenDanhMuc || "").toLowerCase()).length;
+      const count = permittedApps.filter((a) => (a.danhMuc || "").toLowerCase() === (cat.tenDanhMuc || "").toLowerCase()).length;
       const isActive = this.state.activeCategory.toLowerCase() === (cat.tenDanhMuc || "").toLowerCase();
       html += `
         <button class="category-chip ${isActive ? "active" : ""}" data-category="${this.escapeHtml(cat.tenDanhMuc)}">
@@ -983,12 +1098,19 @@ const App = {
     const grid = document.getElementById("appsGrid");
     const emptyState = document.getElementById("appsEmptyState");
     const countDisplay = document.getElementById("appCountDisplay");
+    const currentUser = this.state.currentUser;
+    const isAdmin = (currentUser?.role || "").toUpperCase() === "ADMIN";
 
     let filtered = this.state.applications.filter((app) => {
-      // Lọc theo danh mục
+      // 1. Phân quyền truy cập và hiển thị theo nhóm người sử dụng
+      if (!this.hasAppAccess(app, currentUser)) {
+        return false;
+      }
+
+      // 2. Lọc theo danh mục
       const matchCat = cat === "ALL" || (app.danhMuc || "").toLowerCase() === cat.toLowerCase();
 
-      // Lọc theo từ khóa tìm kiếm (tên, mô tả, danh mục)
+      // 3. Lọc theo từ khóa tìm kiếm (tên, mô tả, danh mục)
       const matchSearch =
         !query ||
         (app.tenUngDung || "").toLowerCase().includes(query) ||
@@ -1001,7 +1123,13 @@ const App = {
     // Sắp xếp theo Thứ tự (ThuTu)
     filtered.sort((a, b) => (Number(a.thuTu) || 999) - (Number(b.thuTu) || 999));
 
-    countDisplay.innerText = `Hiển thị: ${filtered.length} ứng dụng`;
+    if (countDisplay) {
+      if (isAdmin) {
+        countDisplay.innerHTML = `Hiển thị: <strong>${filtered.length}</strong> ứng dụng <span style="font-size:0.75rem; color:#dc2626; font-weight:700;">(Toàn quyền Admin)</span>`;
+      } else {
+        countDisplay.innerHTML = `Hiển thị: <strong>${filtered.length}</strong> ứng dụng được phân quyền`;
+      }
+    }
 
     if (filtered.length === 0) {
       grid.innerHTML = "";
@@ -1016,6 +1144,17 @@ const App = {
       const icon = app.icon || "📱";
       const ssoUrl = this.buildSsoUrl(app.url);
 
+      // Huy hiệu quyền truy cập hiển thị cho Admin
+      let permBadgeHtml = "";
+      if (isAdmin && app.quyenTruyCap) {
+        const rawP = String(app.quyenTruyCap).trim();
+        permBadgeHtml = `
+          <div class="app-perm-badge" title="Nhóm được phân quyền: ${this.escapeHtml(rawP)}">
+            <span style="font-size: 0.75rem;">👥</span> ${this.escapeHtml(rawP)}
+          </div>
+        `;
+      }
+
       html += `
         <div class="app-card">
           <div class="app-card-top">
@@ -1028,6 +1167,7 @@ const App = {
             <p class="app-description" title="${this.escapeHtml(app.moTa || "")}">
               ${this.escapeHtml(app.moTa || "Không có mô tả.")}
             </p>
+            ${permBadgeHtml}
           </div>
 
           <div class="app-card-footer">
@@ -1114,6 +1254,17 @@ const App = {
     if (!anchorEl) return true;
     const rawUrl = anchorEl.getAttribute("data-raw-url") || anchorEl.getAttribute("href");
     const appName = anchorEl.getAttribute("data-app-name") || "Ứng dụng";
+
+    // Kiểm tra quyền truy cập trước khi mở
+    const app = this.state.applications.find(
+      (a) => (a.url && a.url === rawUrl) || (a.tenUngDung && a.tenUngDung === appName)
+    );
+
+    if (app && !this.hasAppAccess(app, this.state.currentUser)) {
+      if (event) event.preventDefault();
+      this.showToast(`⚠️ Bạn không thuộc nhóm được cấp quyền mở ứng dụng "${appName}"!`, "error");
+      return false;
+    }
 
     if (rawUrl && rawUrl !== "#") {
       anchorEl.href = this.buildSsoUrl(rawUrl);
@@ -1312,7 +1463,22 @@ const App = {
                  🔑 Mở (SSO) ↗
               </a>
             </td>
-            <td><span class="user-badge-role role-user">${this.escapeHtml(app.quyenTruyCap || "All")}</span></td>
+            <td>${(() => {
+              const rawPerm = String(app.quyenTruyCap || "All").trim();
+              if (!rawPerm || rawPerm.toLowerCase() === "all") {
+                return '<span class="user-badge-role" style="background: #dcfce7; color: #166534; font-weight: 700;">🌐 Tất cả (All)</span>';
+              }
+              return rawPerm.split(",").map(t => {
+                const token = t.trim();
+                let roleClass = "role-user";
+                let style = "";
+                if (token.toLowerCase() === "admin") roleClass = "role-admin";
+                else if (token.toLowerCase() === "manager") roleClass = "role-manager";
+                else if (token.toLowerCase().includes("pccc")) style = "background: #fee2e2; color: #b91c1c;";
+                else if (token.toLowerCase().includes("bếp") || token.toLowerCase().includes("thực phẩm")) style = "background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;";
+                return `<span class="user-badge-role ${roleClass}" style="margin: 2px; ${style}">${this.escapeHtml(token)}</span>`;
+              }).join(" ");
+            })()}</td>
             <td>${app.thuTu || 1}</td>
             <td>
               <span class="status-badge ${isActive ? "active" : "inactive"}">
@@ -1368,11 +1534,106 @@ const App = {
     });
   },
 
+  /**
+   * Xử lý khi Admin bấm chọn/bỏ chọn Tất cả mọi người (All)
+   */
+  handlePermCheckAllChange: function (isChecked) {
+    const specificSection = document.getElementById("permSpecificGroupsSection");
+    const summary = document.getElementById("permSelectedSummary");
+    const hiddenInput = document.getElementById("appFormQuyen");
+    const groupCheckboxes = document.querySelectorAll('input[name="appPermGroup"]');
+
+    if (isChecked) {
+      if (specificSection) specificSection.style.display = "none";
+      groupCheckboxes.forEach((cb) => (cb.checked = false));
+      if (hiddenInput) hiddenInput.value = "All";
+      if (summary) {
+        summary.innerText = "Tất cả nhân viên (All)";
+        summary.style.color = "#166534";
+        summary.style.background = "#dcfce7";
+      }
+    } else {
+      if (specificSection) specificSection.style.display = "block";
+      this.handlePermGroupChange();
+    }
+  },
+
+  /**
+   * Xử lý khi Admin chọn/bỏ chọn một nhóm người sử dụng cụ thể
+   */
+  handlePermGroupChange: function () {
+    const checkAll = document.getElementById("permCheckAll");
+    const specificSection = document.getElementById("permSpecificGroupsSection");
+    const summary = document.getElementById("permSelectedSummary");
+    const hiddenInput = document.getElementById("appFormQuyen");
+    const groupCheckboxes = document.querySelectorAll('input[name="appPermGroup"]:checked');
+
+    const selected = Array.from(groupCheckboxes).map((cb) => cb.value.trim());
+
+    if (selected.length === 0) {
+      if (checkAll) checkAll.checked = true;
+      if (specificSection) specificSection.style.display = "none";
+      if (hiddenInput) hiddenInput.value = "All";
+      if (summary) {
+        summary.innerText = "Tất cả nhân viên (All)";
+        summary.style.color = "#166534";
+        summary.style.background = "#dcfce7";
+      }
+    } else {
+      if (checkAll) checkAll.checked = false;
+      const permStr = selected.join(", ");
+      if (hiddenInput) hiddenInput.value = permStr;
+      if (summary) {
+        summary.innerText = permStr;
+        summary.style.color = "#0369a1";
+        summary.style.background = "#e0f2fe";
+      }
+    }
+  },
+
+  /**
+   * Gán giá trị phân quyền vào form Modal ứng dụng
+   */
+  setPermModalValues: function (permValue) {
+    const raw = String(permValue || "All").trim();
+    const checkAll = document.getElementById("permCheckAll");
+    const specificSection = document.getElementById("permSpecificGroupsSection");
+    const summary = document.getElementById("permSelectedSummary");
+    const hiddenInput = document.getElementById("appFormQuyen");
+    const groupCheckboxes = document.querySelectorAll('input[name="appPermGroup"]');
+
+    if (hiddenInput) hiddenInput.value = raw;
+
+    if (!raw || raw.toLowerCase() === "all") {
+      if (checkAll) checkAll.checked = true;
+      if (specificSection) specificSection.style.display = "none";
+      groupCheckboxes.forEach((cb) => (cb.checked = false));
+      if (summary) {
+        summary.innerText = "Tất cả nhân viên (All)";
+        summary.style.color = "#166534";
+        summary.style.background = "#dcfce7";
+      }
+    } else {
+      if (checkAll) checkAll.checked = false;
+      if (specificSection) specificSection.style.display = "block";
+      const tokens = raw.split(",").map((t) => t.trim().toLowerCase());
+      groupCheckboxes.forEach((cb) => {
+        cb.checked = tokens.includes(cb.value.trim().toLowerCase());
+      });
+      if (summary) {
+        summary.innerText = raw;
+        summary.style.color = "#0369a1";
+        summary.style.background = "#e0f2fe";
+      }
+    }
+  },
+
   openAddAppModal: function () {
     document.getElementById("formAppModal").reset();
     document.getElementById("appFormId").value = "";
     document.getElementById("modalAppTitle").innerText = "Thêm ứng dụng mới";
     this.populateCategorySelect();
+    this.setPermModalValues("All");
     this.openModal("modalApp");
   },
 
@@ -1387,7 +1648,7 @@ const App = {
     document.getElementById("appFormUrl").value = app.url || "";
     document.getElementById("appFormThuTu").value = app.thuTu || 1;
     document.getElementById("appFormTrangThai").value = app.trangThai || "Active";
-    document.getElementById("appFormQuyen").value = app.quyenTruyCap || "All";
+    this.setPermModalValues(app.quyenTruyCap || "All");
     this.openModal("modalApp");
   },
 

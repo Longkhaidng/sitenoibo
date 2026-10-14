@@ -168,21 +168,6 @@
         </div>
 
         <div class="header-right">
-          <button class="header-btn" id="btnHeaderWorkConfirm" title="Khai báo Giấy xác nhận công (Mất thẻ / Quên thẻ / Thẻ hỏng)" onclick="App.switchView('workConfirm')">
-            <span>🪪</span>
-            <span style="font-size: 0.8rem; font-weight: 700; color: var(--primary-700);">Xác nhận công</span>
-          </button>
-
-          <button class="header-btn" id="btnHeaderPccc" title="Mở ứng dụng Quản lý & Kiểm tra PCCC (HSE Pro)" onclick="App.openPcccApp()">
-            <span>🧯</span>
-            <span style="font-size: 0.8rem; font-weight: 700; color: #dc2626;">Kiểm tra PCCC</span>
-          </button>
-
-          <button class="header-btn" id="btnHeaderThucPham" title="Mở ứng dụng Kiểm thực 3 bước & Lưu mẫu (QĐ 1246/BYT)" onclick="App.openThucPhamApp()">
-            <span>🍱</span>
-            <span style="font-size: 0.8rem; font-weight: 700; color: #15803d;">Kiểm thực ATTP</span>
-          </button>
-
           <button class="header-btn" id="btnHeaderNotif" title="Xem thông báo">
             <span>📢</span>
             <span style="font-size: 0.8rem;">Thông báo</span>
@@ -214,14 +199,8 @@
               <p>Chào mừng bạn đến với Cổng ứng dụng nội bộ Long Khai Corporation. Hãy chọn ứng dụng bên dưới để bắt đầu công việc.</p>
             </div>
             <div class="welcome-quick-action" style="display: flex; gap: 10px; flex-wrap: wrap;">
-              <button class="btn-secondary-white" onclick="App.switchView('workConfirm')">
+              <button class="btn-secondary-white" onclick="App.switchView('workConfirm')" title="Khai báo Giấy xác nhận công khi quên thẻ, mất thẻ, thẻ hỏng">
                 <span>🪪</span> Giấy Xác Nhận Công
-              </button>
-              <button class="btn-secondary-white" onclick="App.openPcccApp()" style="background: rgba(220, 38, 38, 0.2); border-color: rgba(254, 202, 202, 0.4);">
-                <span>🧯</span> Kiểm Tra PCCC
-              </button>
-              <button class="btn-secondary-white" onclick="App.openThucPhamApp()" style="background: rgba(22, 101, 52, 0.2); border-color: rgba(187, 247, 208, 0.4);">
-                <span>🍱</span> Kiểm Tra Thực Phẩm
               </button>
               <div id="heroAdminAction" style="display: none;">
                 <button class="btn-secondary-white" onclick="App.openAddAppModal()">
@@ -859,9 +838,9 @@
             </small>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
             <div class="form-group">
-              <label class="form-label" for="appFormThuTu">Thứ tự</label>
+              <label class="form-label" for="appFormThuTu">Thứ tự hiển thị</label>
               <input type="number" id="appFormThuTu" class="form-control no-icon" value="1" min="1">
             </div>
 
@@ -872,21 +851,86 @@
                 <option value="Inactive">Inactive (Tạm ẩn)</option>
               </select>
             </div>
+          </div>
 
-            <div class="form-group">
-              <label class="form-label" for="appFormQuyen">Quyền truy cập</label>
-              <select id="appFormQuyen" class="form-control no-icon">
-                <option value="All">Tất cả nhân viên (All)</option>
-                <option value="IT">Chỉ IT</option>
-                <option value="PCCC">Chỉ PCCC</option>
-                <option value="EHS">Chỉ EHS</option>
-                <option value="Bếp / Căn tin">Chỉ Bếp / Căn tin</option>
-                <option value="HCNS">Chỉ HCNS</option>
-                <option value="Sản xuất">Chỉ Sản xuất</option>
-                <option value="Kho">Chỉ Kho</option>
-                <option value="Manager">Quản lý (Manager trở lên)</option>
-                <option value="Admin">Chỉ Quản trị (Admin)</option>
-              </select>
+          <!-- KHU VỰC PHÂN QUYỀN TRUY CẬP THEO NHÓM NGƯỜI SỬ DỤNG -->
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span><strong>👥 Phân quyền nhóm người sử dụng</strong> <span style="font-weight: normal; color: var(--neutral-500); font-size: 0.8rem;">(Nhóm được xem &amp; mở ứng dụng)</span></span>
+              <span id="permSelectedSummary" class="badge-perm-summary" style="font-size: 0.78rem; font-weight: 700; color: #166534; background: #dcfce7; padding: 2px 8px; border-radius: 99px;">Tất cả nhân viên (All)</span>
+            </label>
+            <input type="hidden" id="appFormQuyen" value="All">
+            
+            <div class="perm-config-box">
+              <label class="perm-all-toggle">
+                <input type="checkbox" id="permCheckAll" checked onchange="App.handlePermCheckAllChange(this.checked)">
+                <span class="perm-all-label">
+                  <strong>🌐 Tất cả mọi người (All)</strong>
+                  <span style="display: block; color: var(--neutral-500); font-size: 0.76rem; font-weight: normal;">Mọi cán bộ công nhân viên đều nhìn thấy và sử dụng ứng dụng này.</span>
+                </span>
+              </label>
+
+              <div id="permSpecificGroupsSection" class="perm-specific-groups" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--neutral-300);">
+                <div style="font-size: 0.78rem; font-weight: 700; color: var(--neutral-600); margin-bottom: 8px;">Chọn các nhóm / phòng ban / vai trò được phép truy cập:</div>
+                <div class="perm-chips-grid">
+                  <label class="perm-checkbox-chip">
+                    <input type="checkbox" name="appPermGroup" value="IT" onchange="App.handlePermGroupChange()">
+                    <span>💻 IT</span>
+                  </label>
+                  <label class="perm-checkbox-chip">
+                    <input type="checkbox" name="appPermGroup" value="PCCC" onchange="App.handlePermGroupChange()">
+                    <span>🧯 PCCC</span>
+                  </label>
+                  <label class="perm-checkbox-chip">
+                    <input type="checkbox" name="appPermGroup" value="EHS" onchange="App.handlePermGroupChange()">
+                    <span>🛡️ EHS</span>
+                  </label>
+                  <label class="perm-checkbox-chip">
+                    <input type="checkbox" name="appPermGroup" value="Bếp / Căn tin" onchange="App.handlePermGroupChange()">
+                    <span>🍱 Bếp / Căn tin</span>
+                  </label>
+                  <label class="perm-checkbox-chip">
+                    <input type="checkbox" name="appPermGroup" value="HCNS" onchange="App.handlePermGroupChange()">
+                    <span>📋 HCNS</span>
+                  </label>
+                  <label class="perm-checkbox-chip">
+                    <input type="checkbox" name="appPermGroup" value="Kế toán" onchange="App.handlePermGroupChange()">
+                    <span>💰 Kế toán</span>
+                  </label>
+                  <label class="perm-checkbox-chip">
+                    <input type="checkbox" name="appPermGroup" value="Sản xuất" onchange="App.handlePermGroupChange()">
+                    <span>⚙️ Sản xuất</span>
+                  </label>
+                  <label class="perm-checkbox-chip">
+                    <input type="checkbox" name="appPermGroup" value="Kho" onchange="App.handlePermGroupChange()">
+                    <span>📦 Kho</span>
+                  </label>
+                  <label class="perm-checkbox-chip">
+                    <input type="checkbox" name="appPermGroup" value="Bảo trì" onchange="App.handlePermGroupChange()">
+                    <span>🔧 Bảo trì</span>
+                  </label>
+                  <label class="perm-checkbox-chip">
+                    <input type="checkbox" name="appPermGroup" value="QA/QC" onchange="App.handlePermGroupChange()">
+                    <span>🔬 QA/QC</span>
+                  </label>
+                  <label class="perm-checkbox-chip">
+                    <input type="checkbox" name="appPermGroup" value="An ninh" onchange="App.handlePermGroupChange()">
+                    <span>📹 An ninh</span>
+                  </label>
+                  <label class="perm-checkbox-chip">
+                    <input type="checkbox" name="appPermGroup" value="Ban Giám Đốc" onchange="App.handlePermGroupChange()">
+                    <span>🏢 Ban Giám Đốc</span>
+                  </label>
+                  <label class="perm-checkbox-chip chip-role-manager" style="border-color: #fde68a; background: #fffbeb;">
+                    <input type="checkbox" name="appPermGroup" value="Manager" onchange="App.handlePermGroupChange()">
+                    <span>⭐ Quản lý (Manager trở lên)</span>
+                  </label>
+                  <label class="perm-checkbox-chip chip-role-admin" style="border-color: #fecaca; background: #fef2f2;">
+                    <input type="checkbox" name="appPermGroup" value="Admin" onchange="App.handlePermGroupChange()">
+                    <span>🔒 Chỉ Quản trị (Admin)</span>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
         </div>

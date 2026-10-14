@@ -546,19 +546,27 @@ function getDashboardData(authUser) {
   rawApps.forEach(app => {
     if (app.TrangThai !== "Active") return;
 
-    const perm = String(app.QuyenTruyCap || "All").trim();
+    const rawPerm = String(app.QuyenTruyCap || "All").trim();
     let hasAccess = false;
 
     if (isAdm) {
       hasAccess = true;
-    } else if (perm.toLowerCase() === "all") {
+    } else if (!rawPerm || rawPerm.toLowerCase() === "all") {
       hasAccess = true;
-    } else if (perm.toLowerCase() === userRole.toLowerCase()) {
-      hasAccess = true;
-    } else if (perm.toLowerCase() === userDept.toLowerCase()) {
-      hasAccess = true;
-    } else if (userRole.toLowerCase() === "manager" && perm.toLowerCase() !== "admin") {
-      hasAccess = true;
+    } else {
+      const allowedTokens = rawPerm.split(",").map(t => t.trim().toLowerCase()).filter(Boolean);
+      const uDept = String(userDept || "").trim().toLowerCase();
+      const uRole = String(userRole || "").trim().toLowerCase();
+
+      if (allowedTokens.includes("all")) {
+        hasAccess = true;
+      } else if (uDept && allowedTokens.some(t => t === uDept || t.includes(uDept) || uDept.includes(t))) {
+        hasAccess = true;
+      } else if (uRole && allowedTokens.includes(uRole)) {
+        hasAccess = true;
+      } else if (uRole === "manager" && !allowedTokens.every(t => t === "admin")) {
+        hasAccess = true;
+      }
     }
 
     if (hasAccess) {

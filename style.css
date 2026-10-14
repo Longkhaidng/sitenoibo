@@ -1923,3 +1923,90 @@ a:hover {
   }
 }
 
+/* ==========================================================================
+   PERMISSION GROUPS & APP ACCESS CONTROL
+   ========================================================================== */
+.perm-config-box {
+  background: var(--neutral-50);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+.perm-all-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.perm-all-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: var(--primary-600);
+}
+.perm-chips-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.perm-checkbox-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid var(--neutral-300);
+  padding: 5px 11px;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--neutral-700);
+  cursor: pointer;
+  transition: var(--transition);
+  user-select: none;
+}
+.perm-checkbox-chip:hover {
+  border-color: var(--primary-500);
+  background: var(--primary-50);
+}
+.perm-checkbox-chip input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--primary-600);
+}
+.perm-checkbox-chip:has(input:checked) {
+  background: #e0f2fe;
+  border-color: #0284c7;
+  color: #0369a1;
+  font-weight: 600;
+}
+.perm-checkbox-chip.chip-role-manager:has(input:checked) {
+  background: #fef3c7;
+  border-color: #d97706;
+  color: #92400e;
+}
+.perm-checkbox-chip.chip-role-admin:has(input:checked) {
+  background: #fee2e2;
+  border-color: #dc2626;
+  color: #991b1b;
+}
+
+/* Badge hiển thị quyền truy cập trên thẻ ứng dụng Dashboard */
+.app-perm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--neutral-600);
+  background: var(--neutral-100);
+  border: 1px solid var(--neutral-200);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  margin-top: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
