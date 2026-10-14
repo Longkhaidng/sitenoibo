@@ -554,17 +554,20 @@ function getDashboardData(authUser) {
     } else if (!rawPerm || rawPerm.toLowerCase() === "all") {
       hasAccess = true;
     } else {
-      const allowedTokens = rawPerm.split(",").map(t => t.trim().toLowerCase()).filter(Boolean);
+      let allowedTokens = rawPerm.split(",").map(t => t.trim().toLowerCase()).filter(Boolean);
       const uDept = String(userDept || "").trim().toLowerCase();
       const uRole = String(userRole || "").trim().toLowerCase();
 
-      if (allowedTokens.includes("all")) {
+      // Nếu có nhiều hơn 1 nhóm và có "all", ưu tiên các nhóm cụ thể, loại bỏ "all"
+      if (allowedTokens.length > 1 && allowedTokens.indexOf("all") !== -1) {
+        allowedTokens = allowedTokens.filter(t => t !== "all");
+      }
+
+      if (allowedTokens.length === 1 && allowedTokens[0] === "all") {
         hasAccess = true;
-      } else if (uDept && allowedTokens.some(t => t === uDept || t.includes(uDept) || uDept.includes(t))) {
+      } else if (uRole && allowedTokens.indexOf(uRole) !== -1) {
         hasAccess = true;
-      } else if (uRole && allowedTokens.includes(uRole)) {
-        hasAccess = true;
-      } else if (uRole === "manager" && !allowedTokens.every(t => t === "admin")) {
+      } else if (uDept && isDepartmentAllowedServer(uDept, allowedTokens)) {
         hasAccess = true;
       }
     }
@@ -638,6 +641,46 @@ function getDashboardData(authUser) {
   }
 
   return response;
+}
+
+/**
+ * Kiểm tra phòng ban người dùng có khớp với danh sách token được phân quyền hay không
+ */
+function isDepartmentAllowedServer(userDept, allowedTokens) {
+  const d = String(userDept || "").trim().toLowerCase();
+  if (!d) return false;
+
+  // Kiểm tra khớp trực tiếp substring
+  if (allowedTokens.some(t => t === d || t.indexOf(d) !== -1 || d.indexOf(t) !== -1)) {
+    return true;
+  }
+
+  // Khớp qua nhóm từ khóa liên quan
+  const groups = [
+    ["hcns", "hành chính", "nhân sự", "hr"],
+    ["pccc", "phòng cháy", "cứu nạn"],
+    ["ehs", "hse", "an toàn", "môi trường"],
+    ["bếp / căn tin", "bếp", "căn tin", "nhà ăn"],
+    ["it", "cntt", "công nghệ thông tin"],
+    ["kế toán", "tài chính", "kt"],
+    ["sản xuất", "sx", "xưởng"],
+    ["kho", "kho bãi", "logistics"],
+    ["bảo trì", "cơ điện", "kỹ thuật"],
+    ["qa/qc", "qa", "qc", "kcs"],
+    ["an ninh", "bảo vệ"],
+    ["ban giám đốc", "giám đốc", "bgđ", "bod"]
+  ];
+
+  for (let i = 0; i < groups.length; i++) {
+    const grp = groups[i];
+    const userInGroup = grp.some(k => d.indexOf(k) !== -1);
+    if (userInGroup) {
+      const matchToken = allowedTokens.some(t => grp.some(k => t.indexOf(k) !== -1));
+      if (matchToken) return true;
+    }
+  }
+
+  return false;
 }
 
 // ============================================================================
@@ -734,11 +777,30 @@ function addApplication(adminUser, data) {
 function updateApplication(adminUser, data) {
   const sheet = getSheet(SHEETS.APPLICATIONS);
   const rows = getSheetDataAsObjects(sheet);
-  const id = Number(data.id);
-  const rowIndex = rows.findIndex(r => Number(r.ID) === id);
+  let id = Number(data.id);
+  let rowIndex = -1;
 
+  if (id && !isNaN(id) && id > 0) {
+    rowIndex = rows.findIndex(r => Number(r.ID) === id);
+  }
+
+  // Nếu không tìm thấy bằng ID số (ví dụ: id là chuỗi tạm thời hoặc = 0),
+  // thử tìm theo URL hoặc Tên ứng dụng trên Sheet
+  if (rowIndex === -1 && (data.url || data.tenUngDung)) {
+    const targetUrl = String(data.url || "").trim().toLowerCase();
+    const targetName = String(data.tenUngDung || "").trim().toLowerCase();
+
+    rowIndex = rows.findIndex(r => {
+      const rUrl = String(r.URL || "").trim().toLowerCase();
+      const rName = String(r.TenUngDung || "").trim().toLowerCase();
+      return (targetUrl && (rUrl === targetUrl || rUrl.includes(targetUrl) || targetUrl.includes(rUrl))) ||
+             (targetName && rName === targetName);
+    });
+  }
+
+  // Nếu trên Sheet vẫn chưa có dòng ứng dụng này, tự động thêm mới vào Sheet
   if (rowIndex === -1) {
-    return { success: false, message: "Không tìm thấy ứng dụng có ID: " + id };
+    return addApplication(adminUser, data);
   }
 
   const rowNumber = rowIndex + 2;

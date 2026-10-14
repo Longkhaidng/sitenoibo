@@ -222,10 +222,10 @@ const App = {
                 url: "pccc/index.html",
                 thuTu: 1,
                 trangThai: "Active",
-                quyenTruyCap: "PCCC, EHS, All"
+                quyenTruyCap: "PCCC, EHS"
               },
               {
-                id: "thucpham-app-card",
+                id: 3,
                 tenUngDung: "Kiểm tra thực phẩm 3 bước & Lưu mẫu",
                 moTa: "Kiểm thực 3 bước và lưu mẫu thức ăn theo chuẩn QĐ 1246/QĐ-BYT Bộ Y tế",
                 danhMuc: "EHS",
@@ -233,10 +233,10 @@ const App = {
                 url: "thucpham/index.html",
                 thuTu: 2,
                 trangThai: "Active",
-                quyenTruyCap: "Bếp / Căn tin, EHS, All"
+                quyenTruyCap: "Bếp / Căn tin, EHS"
               },
               {
-                id: 3,
+                id: 4,
                 tenUngDung: "Đăng ký nghỉ phép",
                 moTa: "Hệ thống nộp đơn nghỉ phép, xin công tác trực tuyến",
                 danhMuc: "HCNS",
@@ -247,7 +247,7 @@ const App = {
                 quyenTruyCap: "All"
               },
               {
-                id: 4,
+                id: 5,
                 tenUngDung: "Quản lý camera giám sát",
                 moTa: "Hệ thống giám sát an ninh các cổng và xưởng",
                 danhMuc: "An ninh",
@@ -258,7 +258,7 @@ const App = {
                 quyenTruyCap: "An ninh, IT, Ban Giám Đốc"
               },
               {
-                id: 5,
+                id: 6,
                 tenUngDung: "Quản lý chấm công",
                 moTa: "Tra cứu dữ liệu chấm công máy quẹt vân tay hàng tháng",
                 danhMuc: "HCNS",
@@ -269,7 +269,7 @@ const App = {
                 quyenTruyCap: "All"
               },
               {
-                id: 6,
+                id: 7,
                 tenUngDung: "Quản lý EHS & An toàn",
                 moTa: "Báo cáo sự cố an toàn lao động, vệ sinh môi trường",
                 danhMuc: "EHS",
@@ -280,7 +280,7 @@ const App = {
                 quyenTruyCap: "EHS"
               },
               {
-                id: 7,
+                id: 8,
                 tenUngDung: "Quản lý kho nguyên vật liệu",
                 moTa: "Quản lý nhập xuất tồn nguyên liệu xưởng sản xuất",
                 danhMuc: "Kho",
@@ -706,8 +706,7 @@ const App = {
 
     // 1. Quản trị viên hệ thống (Admin) luôn có quyền xem và truy cập tất cả ứng dụng
     const role = String(user.role || "").trim().toUpperCase();
-    const empId = String(user.maNhanVien || "").trim().toUpperCase();
-    if (role === "ADMIN" || empId === "2265") {
+    if (role === "ADMIN") {
       return true;
     }
 
@@ -723,37 +722,91 @@ const App = {
     }
 
     // Tách danh sách nhóm người dùng được cấp phép
-    const allowedTokens = rawPerm
+    let allowedTokens = rawPerm
       .split(",")
       .map((t) => t.trim().toLowerCase())
       .filter(Boolean);
 
-    if (allowedTokens.includes("all")) {
+    // Nếu có nhiều hơn 1 nhóm và có chứa token "all" (dữ liệu cũ sót lại),
+    // ưu tiên tôn trọng các nhóm cụ thể được phân quyền, loại bỏ "all"
+    if (allowedTokens.length > 1 && allowedTokens.includes("all")) {
+      allowedTokens = allowedTokens.filter((t) => t !== "all");
+    }
+
+    if (allowedTokens.length === 1 && allowedTokens[0] === "all") {
       return true;
     }
 
     const userDept = String(user.phongBan || "").trim().toLowerCase();
     const userRole = String(user.role || "").trim().toLowerCase();
 
-    // 4. Khớp theo phòng ban của người dùng
-    if (userDept) {
-      const matchDept = allowedTokens.some((token) => {
-        return token === userDept || token.includes(userDept) || userDept.includes(token);
-      });
-      if (matchDept) return true;
-    }
-
-    // 5. Khớp theo vai trò của người dùng
+    // 4. Khớp theo vai trò người dùng (Admin, Manager, User...) nếu nhóm đó được chọn cụ thể
     if (userRole && allowedTokens.includes(userRole)) {
       return true;
     }
 
-    // 6. Quản lý (Manager) có quyền truy cập nếu ứng dụng không bị giới hạn riêng cho Admin
-    if (userRole === "manager" && !allowedTokens.every((t) => t === "admin")) {
-      return true;
+    // 5. Khớp theo phòng ban của người dùng (hỗ trợ từ đồng nghĩa và viết tắt thông dụng)
+    if (userDept) {
+      const deptAliases = this.getDepartmentAliases(userDept);
+      const matchDept = allowedTokens.some((token) => {
+        if (token === userDept || token.includes(userDept) || userDept.includes(token)) {
+          return true;
+        }
+        return deptAliases.some(
+          (alias) => token === alias || token.includes(alias) || alias.includes(token)
+        );
+      });
+      if (matchDept) return true;
     }
 
     return false;
+  },
+
+  /**
+   * Danh sách từ đồng nghĩa và từ viết tắt của các phòng ban để nhận diện quyền chuẩn xác
+   */
+  getDepartmentAliases: function (dept) {
+    const d = String(dept || "").trim().toLowerCase();
+    const aliases = [d];
+
+    if (d.includes("hành chính") || d.includes("nhân sự") || d.includes("hcns") || d.includes("hr")) {
+      aliases.push("hcns", "hành chính", "nhân sự", "hr");
+    }
+    if (d.includes("pccc") || d.includes("phòng cháy") || d.includes("cứu nạn")) {
+      aliases.push("pccc", "phòng cháy");
+    }
+    if (d.includes("ehs") || d.includes("hse") || d.includes("an toàn") || d.includes("môi trường")) {
+      aliases.push("ehs", "hse", "an toàn", "an toàn - môi trường");
+    }
+    if (d.includes("bếp") || d.includes("căn tin") || d.includes("nhà ăn") || d.includes("dinh dưỡng")) {
+      aliases.push("bếp / căn tin", "bếp", "căn tin", "nhà ăn");
+    }
+    if (d.includes("it") || d.includes("cntt") || d.includes("công nghệ thông tin") || d.includes("tin học")) {
+      aliases.push("it", "cntt", "công nghệ thông tin");
+    }
+    if (d.includes("kế toán") || d.includes("tài chính") || d.includes("kt")) {
+      aliases.push("kế toán", "tài chính", "kt");
+    }
+    if (d.includes("sản xuất") || d.includes("sx") || d.includes("xưởng")) {
+      aliases.push("sản xuất", "sx");
+    }
+    if (d.includes("kho") || d.includes("kho bãi") || d.includes("logistics")) {
+      aliases.push("kho", "logistics");
+    }
+    if (d.includes("bảo trì") || d.includes("cơ điện") || d.includes("kỹ thuật") || d.includes("bt")) {
+      aliases.push("bảo trì", "cơ điện", "kỹ thuật");
+    }
+    if (d.includes("qa") || d.includes("qc") || d.includes("kcs") || d.includes("chất lượng")) {
+      aliases.push("qa/qc", "qa", "qc", "kcs", "quản lý chất lượng");
+    }
+    if (d.includes("an ninh") || d.includes("bảo vệ") || d.includes("security")) {
+      aliases.push("an ninh", "bảo vệ", "security");
+    }
+    if (d.includes("giám đốc") || d.includes("ban giám đốc") || d.includes("bgđ") || d.includes("bod")) {
+      aliases.push("ban giám đốc", "giám đốc", "bgđ", "bod");
+    }
+
+    return Array.from(new Set(aliases));
   },
 
   /**
@@ -766,18 +819,19 @@ const App = {
 
     const pcccApp = this.state.applications.find(
       (a) => (a.danhMuc && a.danhMuc.toUpperCase() === "PCCC") || (a.url && a.url.includes("pccc"))
-    );
+    ) || { quyenTruyCap: "PCCC, EHS", trangThai: "Active" };
+
     const thucPhamApp = this.state.applications.find(
       (a) => (a.url && a.url.includes("thucpham")) || (a.tenUngDung && a.tenUngDung.toLowerCase().includes("thực phẩm"))
-    );
+    ) || { quyenTruyCap: "Bếp / Căn tin, EHS", trangThai: "Active" };
 
     if (pcccNav) {
-      const canAccessPccc = pcccApp ? this.hasAppAccess(pcccApp, user) : true;
+      const canAccessPccc = this.hasAppAccess(pcccApp, user);
       pcccNav.style.display = canAccessPccc ? "flex" : "none";
     }
 
     if (thucPhamNav) {
-      const canAccessThucPham = thucPhamApp ? this.hasAppAccess(thucPhamApp, user) : true;
+      const canAccessThucPham = this.hasAppAccess(thucPhamApp, user);
       thucPhamNav.style.display = canAccessThucPham ? "flex" : "none";
     }
   },
@@ -810,6 +864,12 @@ const App = {
     );
 
     if (pcccIdx !== -1) {
+      let rawPerm = list[pcccIdx].quyenTruyCap || "PCCC, EHS";
+      let tokens = rawPerm.split(",").map((t) => t.trim()).filter(Boolean);
+      if (tokens.length > 1 && tokens.some((t) => t.toLowerCase() === "all")) {
+        tokens = tokens.filter((t) => t.toLowerCase() !== "all");
+        rawPerm = tokens.join(", ");
+      }
       list[pcccIdx] = {
         ...list[pcccIdx],
         tenUngDung: list[pcccIdx].tenUngDung || "Quản lý & Kiểm tra PCCC",
@@ -818,7 +878,7 @@ const App = {
         icon: "🧯",
         url: "pccc/index.html",
         trangThai: "Active",
-        quyenTruyCap: list[pcccIdx].quyenTruyCap || "PCCC, EHS, All"
+        quyenTruyCap: rawPerm
       };
     } else {
       // Nếu Google Sheet chưa có thẻ PCCC, tự động chèn lên đầu danh sách
@@ -831,7 +891,7 @@ const App = {
         url: "pccc/index.html",
         thuTu: 1,
         trangThai: "Active",
-        quyenTruyCap: "PCCC, EHS, All"
+        quyenTruyCap: "PCCC, EHS"
       });
     }
 
@@ -887,6 +947,12 @@ const App = {
     );
 
     if (idx !== -1) {
+      let rawPerm = list[idx].quyenTruyCap || "Bếp / Căn tin, EHS";
+      let tokens = rawPerm.split(",").map((t) => t.trim()).filter(Boolean);
+      if (tokens.length > 1 && tokens.some((t) => t.toLowerCase() === "all")) {
+        tokens = tokens.filter((t) => t.toLowerCase() !== "all");
+        rawPerm = tokens.join(", ");
+      }
       list[idx] = {
         ...list[idx],
         tenUngDung: list[idx].tenUngDung || "Kiểm tra thực phẩm 3 bước & Lưu mẫu",
@@ -895,7 +961,7 @@ const App = {
         icon: list[idx].icon || "🍱",
         url: "thucpham/index.html",
         trangThai: "Active",
-        quyenTruyCap: list[idx].quyenTruyCap || "Bếp / Căn tin, EHS, All"
+        quyenTruyCap: rawPerm
       };
     } else {
       // Chèn sau thẻ PCCC hoặc vị trí thứ 2
@@ -910,7 +976,7 @@ const App = {
         url: "thucpham/index.html",
         thuTu: 2,
         trangThai: "Active",
-        quyenTruyCap: "Bếp / Căn tin, EHS, All"
+        quyenTruyCap: "Bếp / Căn tin, EHS"
       });
     }
 
@@ -1023,8 +1089,14 @@ const App = {
 
   invalidateClientCache: function () {
     try {
-      const cacheKey = "PORTAL_CACHE_DASHBOARD_" + (this.state.currentUser?.maNhanVien || "guest");
-      localStorage.removeItem(cacheKey);
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("PORTAL_CACHE_DASHBOARD_")) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
     } catch (e) {}
   },
 
@@ -1057,9 +1129,20 @@ const App = {
   renderCategoryChips: function (categories, applications) {
     const container = document.getElementById("categoryChipsContainer");
     const currentUser = this.state.currentUser;
+    const isAdmin = (currentUser?.role || "").toUpperCase() === "ADMIN";
     // Chỉ đếm các ứng dụng mà người dùng hiện tại có quyền xem & truy cập
     const permittedApps = (applications || []).filter((app) => this.hasAppAccess(app, currentUser));
     const countAll = permittedApps.length;
+
+    // Nếu category hiện tại của user không có ứng dụng nào được phép xem, tự động đưa về "ALL"
+    if (!isAdmin && this.state.activeCategory !== "ALL") {
+      const currentCatHasApp = permittedApps.some(
+        (a) => (a.danhMuc || "").toLowerCase() === this.state.activeCategory.toLowerCase()
+      );
+      if (!currentCatHasApp) {
+        this.state.activeCategory = "ALL";
+      }
+    }
 
     let html = `
       <button class="category-chip ${this.state.activeCategory === "ALL" ? "active" : ""}" data-category="ALL">
@@ -1069,7 +1152,13 @@ const App = {
     `;
 
     categories.forEach((cat) => {
-      const count = permittedApps.filter((a) => (a.danhMuc || "").toLowerCase() === (cat.tenDanhMuc || "").toLowerCase()).length;
+      const count = permittedApps.filter(
+        (a) => (a.danhMuc || "").toLowerCase() === (cat.tenDanhMuc || "").toLowerCase()
+      ).length;
+      // Không hiển thị chip danh mục có 0 ứng dụng đối với nhân viên không có quyền
+      if (!isAdmin && count === 0) {
+        return;
+      }
       const isActive = this.state.activeCategory.toLowerCase() === (cat.tenDanhMuc || "").toLowerCase();
       html += `
         <button class="category-chip ${isActive ? "active" : ""}" data-category="${this.escapeHtml(cat.tenDanhMuc)}">
@@ -1488,7 +1577,7 @@ const App = {
             <td style="text-align: right;">
               <div class="action-buttons" style="justify-content: flex-end;">
                 <button class="btn-action btn-edit" onclick="App.openEditAppModal(${JSON.stringify(app).replace(/"/g, '&quot;')})">✏ Sửa</button>
-                <button class="btn-action btn-delete" onclick="App.confirmDeleteApp(${app.id}, '${this.escapeHtml(app.tenUngDung)}')">🗑 Xóa</button>
+                <button class="btn-action btn-delete" onclick="App.confirmDeleteApp('${app.id}', '${this.escapeHtml(app.tenUngDung)}')">🗑 Xóa</button>
               </div>
             </td>
           </tr>
@@ -1595,12 +1684,19 @@ const App = {
    * Gán giá trị phân quyền vào form Modal ứng dụng
    */
   setPermModalValues: function (permValue) {
-    const raw = String(permValue || "All").trim();
+    let raw = String(permValue || "All").trim();
     const checkAll = document.getElementById("permCheckAll");
     const specificSection = document.getElementById("permSpecificGroupsSection");
     const summary = document.getElementById("permSelectedSummary");
     const hiddenInput = document.getElementById("appFormQuyen");
     const groupCheckboxes = document.querySelectorAll('input[name="appPermGroup"]');
+
+    // Tách danh sách token để làm sạch (nếu có nhóm cụ thể và có All, loại bỏ All)
+    let tokens = raw.split(",").map((t) => t.trim()).filter(Boolean);
+    if (tokens.length > 1 && tokens.some((t) => t.toLowerCase() === "all")) {
+      tokens = tokens.filter((t) => t.toLowerCase() !== "all");
+      raw = tokens.join(", ");
+    }
 
     if (hiddenInput) hiddenInput.value = raw;
 
@@ -1616,9 +1712,9 @@ const App = {
     } else {
       if (checkAll) checkAll.checked = false;
       if (specificSection) specificSection.style.display = "block";
-      const tokens = raw.split(",").map((t) => t.trim().toLowerCase());
+      const lowerTokens = tokens.map((t) => t.toLowerCase());
       groupCheckboxes.forEach((cb) => {
-        cb.checked = tokens.includes(cb.value.trim().toLowerCase());
+        cb.checked = lowerTokens.includes(cb.value.trim().toLowerCase());
       });
       if (summary) {
         summary.innerText = raw;
@@ -1653,11 +1749,32 @@ const App = {
   },
 
   handleSaveApp: async function () {
-    const id = document.getElementById("appFormId").value;
-    const isEdit = Boolean(id);
+    const rawId = document.getElementById("appFormId").value;
+    let numericId = Number(rawId);
+    let resolvedId = (!isNaN(numericId) && numericId > 0) ? numericId : null;
+
+    const appUrl = (document.getElementById("appFormUrl").value || "").trim().toLowerCase();
+    const appTen = (document.getElementById("appFormTen").value || "").trim().toLowerCase();
+
+    // Nếu ID chưa phải số dương (ví dụ card ảo "thucpham-app-card" hoặc "pccc-app-card"),
+    // kiểm tra xem trong danh sách applications hiện tại đã có app tương ứng với ID số chưa
+    if (!resolvedId && this.state.applications && this.state.applications.length > 0) {
+      const match = this.state.applications.find((a) => {
+        const aNumId = Number(a.id);
+        const hasValidNumId = !isNaN(aNumId) && aNumId > 0;
+        if (!hasValidNumId) return false;
+        const mUrl = String(a.url || "").trim().toLowerCase();
+        const mTen = String(a.tenUngDung || "").trim().toLowerCase();
+        return (appUrl && (mUrl === appUrl || mUrl.includes(appUrl) || appUrl.includes(mUrl))) ||
+               (appTen && mTen === appTen);
+      });
+      if (match) {
+        resolvedId = Number(match.id);
+      }
+    }
 
     const appData = {
-      id: id ? Number(id) : null,
+      id: resolvedId,
       tenUngDung: document.getElementById("appFormTen").value.trim(),
       moTa: document.getElementById("appFormMoTa").value.trim(),
       danhMuc: document.getElementById("appFormDanhMuc").value,
@@ -1668,6 +1785,7 @@ const App = {
       quyenTruyCap: document.getElementById("appFormQuyen").value
     };
 
+    const isEdit = Boolean(rawId);
     const action = isEdit ? "update_application" : "add_application";
     const res = await this.callApi(action, appData);
 
