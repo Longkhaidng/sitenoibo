@@ -97,7 +97,22 @@ const App = {
         throw new Error(`HTTP ${response.status}: Lỗi giao tiếp máy chủ`);
       }
 
-      const resJson = await response.json();
+      const rawText = await response.text();
+      let resJson = null;
+      try {
+        resJson = JSON.parse(rawText);
+      } catch (jsonErr) {
+        if (rawText.includes("doPost") || rawText.includes("Không tìm thấy hàm tập lệnh")) {
+          return {
+            success: false,
+            message: "⚠️ Google Apps Script chưa được cập nhật hàm doPost! Vui lòng sao chép Code.gs vào dự án Apps Script và Triển khai phiên bản mới."
+          };
+        }
+        return {
+          success: false,
+          message: "Phản hồi từ Google Apps Script không đúng định dạng JSON."
+        };
+      }
       return resJson;
     } catch (err) {
       clearTimeout(timeoutId);
