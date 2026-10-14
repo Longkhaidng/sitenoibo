@@ -70,14 +70,15 @@ function doPost(e) {
  * Xử lý GET request (kiểm tra trạng thái hoặc truy vấn nhanh)
  */
 function doGet(e) {
-  const action = (e && e.parameter && e.parameter.action) || "ping";
+  const action = (e && e.parameter && e.parameter.action) || "";
   const token = (e && e.parameter && (e.parameter.token || e.parameter.sso_token)) || "";
 
-  // Xử lý phê duyệt / từ chối đơn xin nghỉ phép 1 chạm trực tiếp qua email
+  // 1. Xử lý phê duyệt / từ chối đơn xin nghỉ phép 1 chạm trực tiếp qua email
   if (action === "approve_leave_email" || action === "reject_leave_email") {
     return handleEmailLeaveApproval(e && e.parameter);
   }
 
+  // 2. Ping kiểm tra API
   if (action === "ping") {
     return createJsonResponse({
       success: true,
@@ -86,8 +87,26 @@ function doGet(e) {
     });
   }
 
-  const result = handleApiRouter(action, (e && e.parameter) || {}, token);
-  return createJsonResponse(result);
+  // 3. Xử lý các action API nếu có truyền action
+  if (action) {
+    const result = handleApiRouter(action, (e && e.parameter) || {}, token);
+    return createJsonResponse(result);
+  }
+
+  // 4. Nếu mở link trực tiếp (không truyền param action):
+  // Giữ nguyên hiển thị giao diện LONG KHẢI E-FORM nếu kịch bản có file template HTML
+  try {
+    return HtmlService.createTemplateFromFile("index").evaluate()
+      .setTitle("LONG KHẢI E-FORM")
+      .addMetaTag("viewport", "width=device-width, initial-scale=1.0")
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  } catch (err) {
+    return createJsonResponse({
+      success: true,
+      message: "API Cổng thông tin nội bộ Long Khai Corporation hoạt động tốt!",
+      time: new Date().toISOString()
+    });
+  }
 }
 
 /**
@@ -317,12 +336,16 @@ function generateToken(user) {
   const exp = nowSec + (7 * 24 * 60 * 60); // 7 ngày
   const payload = Utilities.base64Encode(
     JSON.stringify({
-      id: user.id,
+      id: user.id || user.maNhanVien,
       maNhanVien: user.maNhanVien,
       hoTen: user.hoTen,
       phongBan: user.phongBan,
       chucVu: user.chucVu || "Nhân viên",
+      to: user.to || "",
       role: user.role,
+      laNhanVienKinhTe: !!user.laNhanVienKinhTe,
+      laIT: !!user.laIT,
+      laToTruong: !!user.laToTruong,
       iat: nowSec,
       exp: exp
     }),
@@ -397,79 +420,173 @@ function handleVerifySsoToken(ssoToken, data) {
       hoTen: verifiedUser.hoTen,
       phongBan: verifiedUser.phongBan,
       chucVu: verifiedUser.chucVu || "Nhân viên",
+      to: verifiedUser.to || "",
       role: verifiedUser.role,
+      laNhanVienKinhTe: !!verifiedUser.laNhanVienKinhTe,
+      laIT: !!verifiedUser.laIT,
+      laToTruong: !!verifiedUser.laToTruong,
       exp: verifiedUser.exp
     }
   };
 }
 
 /**
- * Xử lý đăng nhập (Tối ưu hóa: đọc toàn bộ sheet Users trong 1 call)
+ * Xử lý đăng nhập (Tối ưu hóa: linh hoạt đọc sheet User / Users / NhanVien & tích hợp E-Form)
  */
 function handleLogin(data) {
-  const maNV = (data.maNhanVien || "").trim().toUpperCase();
-  const rawPass = data.matKhau || "";
+  const maNV = (data.maNhanVien || data.maNV || "").trim().toUpperCase();
+  const rawPass = String(data.matKhau || data.password || "");
 
   if (!maNV || !rawPass) {
     return { success: false, message: "Vui lòng nhập đầy đủ Mã nhân viên và Mật khẩu!" };
   }
 
-  const sheet = getSheet(SHEETS.USERS);
-  const rows = getSheetDataAsObjects(sheet);
+  // 1. Nếu hệ thống có sẵn hàm getUserProfile từ LONG KHẢI E-FORM, ưu tiên gọi để đồng bộ tuyệt đối
+  if (typeof getUserProfile === "function") {
+    try {
+      const profileRes = getUserProfile(maNV, rawPass);
+      if (profileRes && profileRes.success && profileRes.user) {
+        const u = profileRes.user;
+        const nowStr = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "yyyy-MM-dd HH:mm:ss");
+
+        let role = "User";
+        if (u.role) {
+          role = u.role;
+        } else if (u.laIT || String(u.boPhan || "").toUpperCase() === "IT" || maNV === "2265" || maNV === "NV001") {
+          role = "Admin";
+        } else if (u.laToTruong || String(u.chucVu || "").toLowerCase().includes("trưởng")) {
+          role = "Manager";
+        }
+
+        const userClean = {
+          id: u.id || u.maNV || maNV,
+          maNhanVien: u.maNV || maNV,
+          hoTen: u.hoTen || ("Nhân viên " + maNV),
+          phongBan: u.boPhan || u.phongBan || "Nhà máy",
+          chucVu: u.chucVu || "Nhân viên",
+          to: u.to || "",
+          role: role,
+          laNhanVienKinhTe: !!u.laNhanVienKinhTe,
+          laIT: !!u.laIT,
+          laToTruong: !!u.laToTruong,
+          trangThai: u.trangThai || "Active",
+          lanDangNhapCuoi: nowStr
+        };
+
+        const token = generateToken(userClean);
+        logAction(userClean.maNhanVien, userClean.hoTen, "Login Success", "Hệ thống", "Đăng nhập qua getUserProfile E-Form");
+
+        return {
+          success: true,
+          message: "Đăng nhập thành công",
+          user: userClean,
+          token: token
+        };
+      }
+    } catch (profileErr) {
+      console.warn("Lỗi gọi getUserProfile nội bộ:", profileErr);
+    }
+  }
+
+  // 2. Tra cứu trực tiếp trên Sheet User / Users / NhanVien
+  const sheet = getUserSheet();
+  const dataRange = sheet.getDataRange().getValues();
+  if (!dataRange || dataRange.length <= 1) {
+    return { success: false, message: "Dữ liệu người dùng trống trên Sheet!" };
+  }
+
+  const headers = dataRange[0].map(h => String(h).trim());
+  const colMaNV = findHeaderIndex(headers, ["maNV", "maNhanVien", "Mã số", "Mã NV", "MSNV", "Mã nhân viên", "ID", "id"]);
+  const colPass = findHeaderIndex(headers, ["matKhau", "password", "Pass", "Mật khẩu"]);
+  const colHoTen = findHeaderIndex(headers, ["hoTen", "Họ và tên", "Họ & tên", "Họ tên", "FullName", "Name", "Ten"]);
+  const colPhongBan = findHeaderIndex(headers, ["boPhan", "phongBan", "Phòng ban", "Bộ phận", "Department"]);
+  const colChucVu = findHeaderIndex(headers, ["chucVu", "Chức vụ", "Position", "Title"]);
+  const colTo = findHeaderIndex(headers, ["to", "Tổ", "Nhóm", "Team"]);
+  const colRole = findHeaderIndex(headers, ["role", "Vai trò", "Quyền", "Role"]);
+  const colTrangThai = findHeaderIndex(headers, ["trangThai", "Status", "Trạng thái", "Tình trạng"]);
+  const colLanLogin = findHeaderIndex(headers, ["lanDangNhapCuoi", "LastLogin", "Lần đăng nhập cuối"]);
+
+  if (colMaNV === -1) {
+    return { success: false, message: "Không tìm thấy cột Mã nhân viên trên Sheet User!" };
+  }
 
   const hashedInput = hashPassword(rawPass);
-  let foundUser = null;
+  let foundRow = null;
   let rowIndex = -1;
 
-  for (let i = 0; i < rows.length; i++) {
-    const u = rows[i];
-    if (String(u.MaNhanVien).trim().toUpperCase() === maNV) {
-      if (u.MatKhau === hashedInput || u.MatKhau === rawPass) {
-        foundUser = u;
-        rowIndex = i + 2; // Dòng 1 là tiêu đề
+  for (let i = 1; i < dataRange.length; i++) {
+    const row = dataRange[i];
+    const rowMa = String(row[colMaNV] || "").trim().toUpperCase();
+    if (rowMa === maNV) {
+      if (colPass !== -1) {
+        const rowPass = String(row[colPass] || "").trim();
+        // Chấp nhận mật khẩu khớp trực tiếp dạng văn bản HOẶC dạng SHA-256 hash
+        if (rowPass === rawPass || rowPass === hashedInput) {
+          foundRow = row;
+          rowIndex = i + 1;
+          break;
+        }
+      } else {
+        // Nếu sheet User không có cột mật khẩu, cho phép đăng nhập bằng Mã nhân viên
+        foundRow = row;
+        rowIndex = i + 1;
         break;
       }
     }
   }
 
-  if (!foundUser) {
+  if (!foundRow) {
     logAction(maNV, "-", "Login Failed", "Hệ thống", "Sai tài khoản hoặc mật khẩu");
     return { success: false, message: "Mã nhân viên hoặc mật khẩu không chính xác!" };
   }
 
-  if (foundUser.TrangThai !== "Active") {
-    logAction(maNV, foundUser.HoTen, "Login Blocked", "Tài khoản", "Tài khoản bị khóa");
+  const trangThaiVal = colTrangThai !== -1 ? String(foundRow[colTrangThai] || "Active").trim() : "Active";
+  if (trangThaiVal.toLowerCase() === "blocked" || trangThaiVal.toLowerCase() === "khóa") {
     return { success: false, message: "Tài khoản của bạn đang bị tạm khóa. Vui lòng liên hệ IT!" };
   }
 
-  // Cập nhật lần đăng nhập cuối
   const nowStr = Utilities.formatDate(new Date(), "Asia/Ho_Chi_Minh", "yyyy-MM-dd HH:mm:ss");
-  try {
-    const headers = getHeaders(sheet);
-    const lastLoginCol = headers.indexOf("LanDangNhapCuoi") + 1;
-    const passCol = headers.indexOf("MatKhau") + 1;
+  if (colLanLogin !== -1 && rowIndex > 0) {
+    try {
+      sheet.getRange(rowIndex, colLanLogin + 1).setValue(nowStr);
+    } catch (e) {}
+  }
 
-    if (lastLoginCol > 0) sheet.getRange(rowIndex, lastLoginCol).setValue(nowStr);
-    if (passCol > 0 && foundUser.MatKhau !== hashedInput) {
-      sheet.getRange(rowIndex, passCol).setValue(hashedInput); // Tự động hash bảo mật
+  const hoTenVal = colHoTen !== -1 ? String(foundRow[colHoTen] || "") : ("Nhân viên " + maNV);
+  const phongBanVal = colPhongBan !== -1 ? String(foundRow[colPhongBan] || "") : "Nhà máy";
+  const chucVuVal = colChucVu !== -1 ? String(foundRow[colChucVu] || "") : "Nhân viên";
+  const toVal = colTo !== -1 ? String(foundRow[colTo] || "") : "";
+
+  let roleVal = "User";
+  if (colRole !== -1 && foundRow[colRole]) {
+    roleVal = String(foundRow[colRole]).trim();
+  } else {
+    const chucVuLower = chucVuVal.toLowerCase();
+    const phongBanLower = phongBanVal.toLowerCase();
+    if (phongBanLower === "it" || maNV === "2265" || maNV === "NV001") {
+      roleVal = "Admin";
+    } else if (chucVuLower.includes("tổ trưởng") || chucVuLower.includes("nhóm trưởng") || chucVuLower.includes("trưởng")) {
+      roleVal = "Manager";
     }
-  } catch (e) {
-    console.warn("Lỗi cập nhật thời gian đăng nhập:", e);
   }
 
   const userClean = {
-    id: foundUser.ID,
-    maNhanVien: foundUser.MaNhanVien,
-    hoTen: foundUser.HoTen,
-    phongBan: foundUser.PhongBan,
-    chucVu: foundUser.ChucVu,
-    role: foundUser.Role,
-    trangThai: foundUser.TrangThai,
+    id: maNV,
+    maNhanVien: maNV,
+    hoTen: hoTenVal,
+    phongBan: phongBanVal,
+    chucVu: chucVuVal,
+    to: toVal,
+    role: roleVal,
+    laNhanVienKinhTe: chucVuVal.toLowerCase().includes("kinh tế") || chucVuVal.toLowerCase().includes("kế hoạch"),
+    laIT: phongBanVal.toLowerCase() === "it" || roleVal.toUpperCase() === "ADMIN",
+    laToTruong: roleVal === "Manager" || chucVuVal.toLowerCase().includes("tổ trưởng") || chucVuVal.toLowerCase().includes("nhóm trưởng"),
+    trangThai: trangThaiVal,
     lanDangNhapCuoi: nowStr
   };
 
   const token = generateToken(userClean);
-  logAction(userClean.maNhanVien, userClean.hoTen, "Login Success", "Hệ thống", "Đăng nhập thành công");
+  logAction(userClean.maNhanVien, userClean.hoTen, "Login Success", "Hệ thống", "Đăng nhập thành công từ Sheet User");
 
   return {
     success: true,
@@ -490,7 +607,7 @@ function handleChangePassword(authUser, data) {
     return { success: false, message: "Mật khẩu mới phải từ 6 ký tự trở lên!" };
   }
 
-  const sheet = getSheet(SHEETS.USERS);
+  const sheet = getUserSheet();
   const rows = getSheetDataAsObjects(sheet);
   const hashedOld = hashPassword(currPass);
 
@@ -716,7 +833,7 @@ function isDepartmentAllowedServer(userDept, allowedTokens) {
  * Thống kê KPI Dashboard Admin
  */
 function getAdminStats() {
-  const users = getSheetDataAsObjects(getSheet(SHEETS.USERS));
+  const users = getSheetDataAsObjects(getUserSheet());
   const apps = getSheetDataAsObjects(getSheet(SHEETS.APPLICATIONS));
   const cats = getSheetDataAsObjects(getSheet(SHEETS.CATEGORIES));
   const logs = getSheetDataAsObjects(getSheet(SHEETS.LOGS));
@@ -956,18 +1073,28 @@ function deleteCategory(adminUser, data) {
 
 // --- QUẢN LÝ USER ---
 function getUsers() {
-  const sheet = getSheet(SHEETS.USERS);
+  const sheet = getUserSheet();
   const rows = getSheetDataAsObjects(sheet);
-  const users = rows.map(u => ({
-    id: u.ID,
-    maNhanVien: u.MaNhanVien,
-    hoTen: u.HoTen,
-    phongBan: u.PhongBan,
-    chucVu: u.ChucVu,
-    role: u.Role,
-    trangThai: u.TrangThai,
-    ngayTao: formatCellDateTime(u.NgayTao),
-    lanDangNhapCuoi: formatCellDateTime(u.LanDangNhapCuoi)
+  const headers = getHeaders(sheet);
+  const colMaNV = findHeaderIndex(headers, ["maNV", "maNhanVien", "Mã số", "Mã NV", "MSNV", "Mã nhân viên", "ID", "id"]);
+  const colHoTen = findHeaderIndex(headers, ["hoTen", "Họ và tên", "Họ & tên", "Họ tên", "FullName", "Name", "Ten"]);
+  const colPhongBan = findHeaderIndex(headers, ["boPhan", "phongBan", "Phòng ban", "Bộ phận", "Department"]);
+  const colChucVu = findHeaderIndex(headers, ["chucVu", "Chức vụ", "Position", "Title"]);
+  const colRole = findHeaderIndex(headers, ["role", "Vai trò", "Quyền", "Role"]);
+  const colTrangThai = findHeaderIndex(headers, ["trangThai", "Status", "Trạng thái", "Tình trạng"]);
+  const colNgayTao = findHeaderIndex(headers, ["ngayTao", "CreatedAt", "Ngày tạo"]);
+  const colLanLogin = findHeaderIndex(headers, ["lanDangNhapCuoi", "LastLogin", "Lần đăng nhập cuối"]);
+
+  const users = rows.map((u, idx) => ({
+    id: u.ID || (colMaNV !== -1 ? u[headers[colMaNV]] : (idx + 1)),
+    maNhanVien: colMaNV !== -1 ? u[headers[colMaNV]] : (u.MaNhanVien || ""),
+    hoTen: colHoTen !== -1 ? u[headers[colHoTen]] : (u.HoTen || ""),
+    phongBan: colPhongBan !== -1 ? u[headers[colPhongBan]] : (u.PhongBan || ""),
+    chucVu: colChucVu !== -1 ? u[headers[colChucVu]] : (u.ChucVu || ""),
+    role: colRole !== -1 ? (u[headers[colRole]] || "User") : (u.Role || "User"),
+    trangThai: colTrangThai !== -1 ? (u[headers[colTrangThai]] || "Active") : (u.TrangThai || "Active"),
+    ngayTao: colNgayTao !== -1 ? formatCellDateTime(u[headers[colNgayTao]]) : "",
+    lanDangNhapCuoi: colLanLogin !== -1 ? formatCellDateTime(u[headers[colLanLogin]]) : ""
   }));
 
   return { success: true, users: users };
@@ -977,10 +1104,10 @@ function addUser(adminUser, data) {
   const maNV = (data.maNhanVien || "").trim().toUpperCase();
   if (!maNV) return { success: false, message: "Vui lòng nhập Mã nhân viên!" };
 
-  const sheet = getSheet(SHEETS.USERS);
+  const sheet = getUserSheet();
   const rows = getSheetDataAsObjects(sheet);
 
-  if (rows.some(u => String(u.MaNhanVien).trim().toUpperCase() === maNV)) {
+  if (rows.some(u => String(u.MaNhanVien || u.maNV || "").trim().toUpperCase() === maNV)) {
     return { success: false, message: "Mã nhân viên " + maNV + " đã tồn tại!" };
   }
 
@@ -1006,10 +1133,10 @@ function addUser(adminUser, data) {
 }
 
 function updateUser(adminUser, data) {
-  const sheet = getSheet(SHEETS.USERS);
+  const sheet = getUserSheet();
   const rows = getSheetDataAsObjects(sheet);
   const id = Number(data.id);
-  const rowIndex = rows.findIndex(r => Number(r.ID) === id);
+  const rowIndex = rows.findIndex(r => Number(r.ID) === id || String(r.MaNhanVien || r.maNV) === String(data.maNhanVien));
 
   if (rowIndex === -1) return { success: false, message: "Không tìm thấy nhân viên!" };
 
@@ -1032,20 +1159,22 @@ function updateUser(adminUser, data) {
   }
 
   incrementCacheVersion();
-  logAction(adminUser.maNhanVien, adminUser.hoTen, "Update User", rows[rowIndex].MaNhanVien, "Thành công");
+  logAction(adminUser.maNhanVien, adminUser.hoTen, "Update User", rows[rowIndex].MaNhanVien || data.maNhanVien, "Thành công");
   return { success: true, message: "Cập nhật nhân viên thành công!" };
 }
 
 function resetPassword(adminUser, data) {
   const maNV = (data.maNhanVien || "").trim().toUpperCase();
-  const sheet = getSheet(SHEETS.USERS);
+  const sheet = getUserSheet();
   const rows = getSheetDataAsObjects(sheet);
-  const rowIndex = rows.findIndex(r => String(r.MaNhanVien).trim().toUpperCase() === maNV);
+  const rowIndex = rows.findIndex(r => String(r.MaNhanVien || r.maNV).trim().toUpperCase() === maNV);
 
   if (rowIndex === -1) return { success: false, message: "Không tìm thấy nhân viên!" };
 
   const passCol = getHeaders(sheet).indexOf("MatKhau") + 1;
-  sheet.getRange(rowIndex + 2, passCol).setValue(hashPassword("123456"));
+  if (passCol > 0) {
+    sheet.getRange(rowIndex + 2, passCol).setValue(hashPassword("123456"));
+  }
 
   logAction(adminUser.maNhanVien, adminUser.hoTen, "Reset Password", maNV, "Đặt lại về 123456");
   return { success: true, message: "Đã đặt lại mật khẩu của " + maNV + " về mặc định (123456)!" };
@@ -1057,9 +1186,9 @@ function deleteUser(adminUser, data) {
     return { success: false, message: "Không thể tự xóa tài khoản của chính mình!" };
   }
 
-  const sheet = getSheet(SHEETS.USERS);
+  const sheet = getUserSheet();
   const rows = getSheetDataAsObjects(sheet);
-  const rowIndex = rows.findIndex(r => String(r.MaNhanVien).trim().toUpperCase() === maNV);
+  const rowIndex = rows.findIndex(r => String(r.MaNhanVien || r.maNV).trim().toUpperCase() === maNV);
 
   if (rowIndex === -1) return { success: false, message: "Không tìm thấy nhân viên!" };
 
@@ -1981,7 +2110,7 @@ function sendLeaveApprovalEmail(leave) {
     scriptUrl = ScriptApp.getService().getUrl();
   } catch (e) {}
 
-  const userSheet = getSheet(SHEETS.USERS);
+  const userSheet = getUserSheet();
   const users = getSheetDataAsObjects(userSheet);
 
   let recipientEmail = "";
@@ -2151,6 +2280,27 @@ function handleEmailLeaveApproval(params) {
 // 7. CÁC HÀM TIỆN ÍCH GOOGLE SHEETS (ĐƯỢC TỐI ƯU HÓA SINGLE CALL)
 // ============================================================================
 
+function getUserSheet() {
+  const ss = getActiveSpreadsheet();
+  const candidates = ["User", "Users", "NhanVien", "user", "users", "DanhSachNhanVien", "nhanvien"];
+  for (let i = 0; i < candidates.length; i++) {
+    const s = ss.getSheetByName(candidates[i]);
+    if (s) return s;
+  }
+  return getSheet(SHEETS.USERS);
+}
+
+function findHeaderIndex(headers, possibleNames) {
+  const normPossible = possibleNames.map(function(p) {
+    return String(p).toLowerCase().replace(/[^a-z0-9]/g, "");
+  });
+  for (let i = 0; i < headers.length; i++) {
+    const hNorm = String(headers[i] || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (normPossible.indexOf(hNorm) !== -1) return i;
+  }
+  return -1;
+}
+
 function getSheet(sheetName) {
   const ss = getActiveSpreadsheet();
   let sheet = ss.getSheetByName(sheetName);
@@ -2180,8 +2330,15 @@ function getSheetDataAsObjects(sheet) {
 
   for (let i = 1; i < numRows; i++) {
     const row = data[i];
-    // Bỏ qua dòng trống nếu không có ID
-    if (!row[0] && row[0] !== 0) continue;
+    // Bỏ qua dòng trống không có bất kỳ dữ liệu nào
+    let hasVal = false;
+    for (let c = 0; c < row.length; c++) {
+      if (row[c] !== "" && row[c] !== null && row[c] !== undefined) {
+        hasVal = true;
+        break;
+      }
+    }
+    if (!hasVal) continue;
 
     const obj = {};
     for (let j = 0; j < numCols; j++) {
