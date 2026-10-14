@@ -568,6 +568,10 @@ function getDashboardData(authUser) {
         appUrl = "pccc/index.html";
         appIcon = "🧯";
       }
+      if (String(app.TenUngDung).toLowerCase().includes("thực phẩm") || String(app.TenUngDung).toLowerCase().includes("kiểm thực")) {
+        appUrl = "thucpham/index.html";
+        appIcon = "🍱";
+      }
 
       permittedApps.push({
         id: app.ID,
@@ -668,6 +672,10 @@ function getAllApplications() {
     if (appUrl === "https://example.com/pccc" || (String(a.TenUngDung).toLowerCase().includes("pccc") && appUrl.includes("example.com"))) {
       appUrl = "pccc/index.html";
       appIcon = "🧯";
+    }
+    if (String(a.TenUngDung).toLowerCase().includes("thực phẩm") || String(a.TenUngDung).toLowerCase().includes("kiểm thực")) {
+      appUrl = "thucpham/index.html";
+      appIcon = "🍱";
     }
 
     return {
@@ -1503,11 +1511,12 @@ function initDatabase() {
     const sampleApps = [
       [1, "Quản lý thiết bị CNTT", "Kiểm kê, cấp phát thiết bị máy tính, máy in nhà máy", "IT", "💻", "https://example.com/it-devices", 1, "Active", "IT", nowStr, "Admin"],
       [2, "Quản lý & Kiểm tra PCCC", "Kiểm tra định kỳ bình chữa cháy, trạm bơm, tủ vòi, in tem QR & xuất báo cáo HSE", "PCCC", "🧯", "pccc/index.html", 1, "Active", "All", nowStr, "Admin"],
-      [3, "Đăng ký nghỉ phép", "Hệ thống nộp đơn nghỉ phép, xin công tác trực tuyến", "HCNS", "📝", "https://example.com/leave-request", 3, "Active", "All", nowStr, "Admin"],
-      [4, "Quản lý camera giám sát", "Hệ thống giám sát an ninh các cổng và xưởng", "An ninh", "📹", "https://example.com/security-cctv", 4, "Active", "All", nowStr, "Admin"],
-      [5, "Quản lý chấm công", "Tra cứu dữ liệu chấm công máy quẹt vân tay hàng tháng", "HCNS", "⏰", "https://example.com/attendance", 5, "Active", "All", nowStr, "Admin"],
-      [6, "Quản lý EHS & An toàn", "Báo cáo sự cố an toàn lao động, vệ sinh môi trường", "EHS", "🛡️", "https://example.com/ehs-safety", 6, "Active", "All", nowStr, "Admin"],
-      [7, "Quản lý kho nguyên vật liệu", "Quản lý nhập xuất tồn nguyên liệu xưởng sản xuất", "Kho", "📦", "https://example.com/warehouse", 7, "Active", "All", nowStr, "Admin"]
+      [3, "Kiểm tra thực phẩm 3 bước & Lưu mẫu", "Kiểm thực 3 bước và lưu mẫu thức ăn theo chuẩn QĐ 1246/QĐ-BYT Bộ Y tế", "EHS", "🍱", "thucpham/index.html", 2, "Active", "All", nowStr, "Admin"],
+      [4, "Đăng ký nghỉ phép", "Hệ thống nộp đơn nghỉ phép, xin công tác trực tuyến", "HCNS", "📝", "https://example.com/leave-request", 3, "Active", "All", nowStr, "Admin"],
+      [5, "Quản lý camera giám sát", "Hệ thống giám sát an ninh các cổng và xưởng", "An ninh", "📹", "https://example.com/security-cctv", 4, "Active", "All", nowStr, "Admin"],
+      [6, "Quản lý chấm công", "Tra cứu dữ liệu chấm công máy quẹt vân tay hàng tháng", "HCNS", "⏰", "https://example.com/attendance", 5, "Active", "All", nowStr, "Admin"],
+      [7, "Quản lý EHS & An toàn", "Báo cáo sự cố an toàn lao động, vệ sinh môi trường", "EHS", "🛡️", "https://example.com/ehs-safety", 6, "Active", "All", nowStr, "Admin"],
+      [8, "Quản lý kho nguyên vật liệu", "Quản lý nhập xuất tồn nguyên liệu xưởng sản xuất", "Kho", "📦", "https://example.com/warehouse", 7, "Active", "All", nowStr, "Admin"]
     ];
     sampleApps.forEach(a => sheetApps.appendRow(a));
   }

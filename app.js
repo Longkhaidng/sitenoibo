@@ -225,6 +225,17 @@ const App = {
                 quyenTruyCap: "All"
               },
               {
+                id: "thucpham-app-card",
+                tenUngDung: "Kiểm tra thực phẩm 3 bước & Lưu mẫu",
+                moTa: "Kiểm thực 3 bước và lưu mẫu thức ăn theo chuẩn QĐ 1246/QĐ-BYT Bộ Y tế",
+                danhMuc: "EHS",
+                icon: "🍱",
+                url: "thucpham/index.html",
+                thuTu: 2,
+                trangThai: "Active",
+                quyenTruyCap: "All"
+              },
+              {
                 id: 3,
                 tenUngDung: "Đăng ký nghỉ phép",
                 moTa: "Hệ thống nộp đơn nghỉ phép, xin công tác trực tuyến",
@@ -359,6 +370,14 @@ const App = {
         const view = item.getAttribute("data-view");
         if (view === "pccc") {
           this.openPcccApp();
+          if (window.innerWidth <= 992) {
+            sidebar.classList.remove("open");
+            sidebarOverlay.classList.remove("active");
+          }
+          return;
+        }
+        if (view === "thucpham") {
+          this.openThucPhamApp();
           if (window.innerWidth <= 992) {
             sidebar.classList.remove("open");
             sidebarOverlay.classList.remove("active");
@@ -600,6 +619,10 @@ const App = {
       this.openPcccApp();
       return;
     }
+    if (viewName === "thucpham") {
+      this.openThucPhamApp();
+      return;
+    }
 
     this.state.currentView = viewName;
 
@@ -734,6 +757,56 @@ const App = {
     return cats;
   },
 
+  /**
+   * Mở ứng dụng Kiểm thực 3 bước & Lưu mẫu thức ăn kèm mã SSO Token
+   */
+  openThucPhamApp: function () {
+    const thucPhamUrl = this.buildSsoUrl("thucpham/index.html");
+    this.logAppClick("Kiểm tra thực phẩm 3 bước");
+    window.open(thucPhamUrl, "_blank", "noopener,noreferrer");
+  },
+
+  /**
+   * Đảm bảo Thẻ Kiểm tra thực phẩm 3 bước luôn luôn xuất hiện trên Dashboard
+   */
+  ensureThucPhamAppCard: function (apps) {
+    const list = Array.isArray(apps) ? [...apps] : [];
+    const idx = list.findIndex(
+      (a) =>
+        (a.url && a.url.toLowerCase().includes("thucpham")) ||
+        (a.tenUngDung && (a.tenUngDung.toLowerCase().includes("thực phẩm") || a.tenUngDung.toLowerCase().includes("kiểm thực")))
+    );
+
+    if (idx !== -1) {
+      list[idx] = {
+        ...list[idx],
+        tenUngDung: list[idx].tenUngDung || "Kiểm tra thực phẩm 3 bước & Lưu mẫu",
+        moTa: list[idx].moTa || "Kiểm thực 3 bước và lưu mẫu thức ăn theo chuẩn QĐ 1246/QĐ-BYT Bộ Y tế",
+        danhMuc: list[idx].danhMuc || "EHS",
+        icon: list[idx].icon || "🍱",
+        url: "thucpham/index.html",
+        trangThai: "Active"
+      };
+    } else {
+      // Chèn sau thẻ PCCC hoặc vị trí thứ 2
+      const pcccPos = list.findIndex(a => a.id === "pccc-app-card" || (a.url && a.url.includes("pccc")));
+      const insertPos = pcccPos !== -1 ? pcccPos + 1 : 1;
+      list.splice(insertPos, 0, {
+        id: "thucpham-app-card",
+        tenUngDung: "Kiểm tra thực phẩm 3 bước & Lưu mẫu",
+        moTa: "Kiểm thực 3 bước và lưu mẫu thức ăn theo chuẩn QĐ 1246/QĐ-BYT Bộ Y tế",
+        danhMuc: "EHS",
+        icon: "🍱",
+        url: "thucpham/index.html",
+        thuTu: 2,
+        trangThai: "Active",
+        quyenTruyCap: "All"
+      });
+    }
+
+    return list;
+  },
+
   // ==========================================================================
   // DỮ LIỆU DASHBOARD & DANH MỤC ỨNG DỤNG (TỐI ƯU HÓA STALE-WHILE-REVALIDATE)
   // ==========================================================================
@@ -754,7 +827,7 @@ const App = {
           const cached = JSON.parse(cachedRaw);
           if (cached && Array.isArray(cached.applications) && cached.applications.length > 0) {
             this.state.categories = this.ensurePcccCategory(cached.categories || []);
-            this.state.applications = this.ensurePcccAppCard(cached.applications || []);
+            this.state.applications = this.ensureThucPhamAppCard(this.ensurePcccAppCard(cached.applications || []));
             this.state.notifications = cached.notifications || [];
 
             // Hiển thị lập tức giao diện mà người dùng không phải chờ đợi 1 giây nào!
@@ -789,7 +862,7 @@ const App = {
 
       if (res && res.success) {
         this.state.categories = this.ensurePcccCategory(res.categories || []);
-        this.state.applications = this.ensurePcccAppCard(res.applications || []);
+        this.state.applications = this.ensureThucPhamAppCard(this.ensurePcccAppCard(res.applications || []));
         this.state.notifications = res.notifications || [];
 
         // Lưu vào LocalStorage cho các lần truy cập tiếp theo
@@ -1212,7 +1285,7 @@ const App = {
 
     const res = await this.callApi("get_all_applications");
     if (res && res.success) {
-      const apps = this.ensurePcccAppCard(res.applications || []);
+      const apps = this.ensureThucPhamAppCard(this.ensurePcccAppCard(res.applications || []));
       if (apps.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 20px;">Chưa có ứng dụng nào trong hệ thống.</td></tr>`;
         return;

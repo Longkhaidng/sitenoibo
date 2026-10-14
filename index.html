@@ -114,6 +114,11 @@
           <span>Kiểm tra PCCC</span>
           <span class="nav-badge" style="background: #dc2626; color: #fff;">HSE</span>
         </div>
+        <div class="nav-item" data-view="thucpham" title="Mở ứng dụng Kiểm thực 3 bước & Lưu mẫu thức ăn (QĐ 1246/QĐ-BYT)">
+          <span class="nav-icon">🍱</span>
+          <span>Kiểm tra thực phẩm</span>
+          <span class="nav-badge" style="background: #15803d; color: #fff;">ATTP</span>
+        </div>
         <div class="nav-item" data-view="notifications">
           <span class="nav-icon">📢</span>
           <span>Thông báo</span>
@@ -173,6 +178,11 @@
             <span style="font-size: 0.8rem; font-weight: 700; color: #dc2626;">Kiểm tra PCCC</span>
           </button>
 
+          <button class="header-btn" id="btnHeaderThucPham" title="Mở ứng dụng Kiểm thực 3 bước & Lưu mẫu (QĐ 1246/BYT)" onclick="App.openThucPhamApp()">
+            <span>🍱</span>
+            <span style="font-size: 0.8rem; font-weight: 700; color: #15803d;">Kiểm thực ATTP</span>
+          </button>
+
           <button class="header-btn" id="btnHeaderNotif" title="Xem thông báo">
             <span>📢</span>
             <span style="font-size: 0.8rem;">Thông báo</span>
@@ -209,6 +219,9 @@
               </button>
               <button class="btn-secondary-white" onclick="App.openPcccApp()" style="background: rgba(220, 38, 38, 0.2); border-color: rgba(254, 202, 202, 0.4);">
                 <span>🧯</span> Kiểm Tra PCCC
+              </button>
+              <button class="btn-secondary-white" onclick="App.openThucPhamApp()" style="background: rgba(22, 101, 52, 0.2); border-color: rgba(187, 247, 208, 0.4);">
+                <span>🍱</span> Kiểm Tra Thực Phẩm
               </button>
               <div id="heroAdminAction" style="display: none;">
                 <button class="btn-secondary-white" onclick="App.openAddAppModal()">
@@ -867,6 +880,7 @@
                 <option value="IT">Chỉ IT</option>
                 <option value="PCCC">Chỉ PCCC</option>
                 <option value="EHS">Chỉ EHS</option>
+                <option value="Bếp / Căn tin">Chỉ Bếp / Căn tin</option>
                 <option value="HCNS">Chỉ HCNS</option>
                 <option value="Sản xuất">Chỉ Sản xuất</option>
                 <option value="Kho">Chỉ Kho</option>
@@ -959,6 +973,7 @@
                 <option value="HCNS">HCNS</option>
                 <option value="PCCC">PCCC</option>
                 <option value="EHS">EHS</option>
+                <option value="Bếp / Căn tin">Bếp / Căn tin</option>
                 <option value="Sản xuất">Sản xuất</option>
                 <option value="Kho">Kho</option>
                 <option value="Bảo trì">Bảo trì</option>
